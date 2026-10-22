@@ -1,0 +1,10 @@
+# 真实凭据，禁止入库
+.agentrouter_creds.json
+
+# 本地测试产物
+*.log
+.dryrun/
+node_modules/
+
+# wrangler 本地缓存与状态
+.wrangler/
