@@ -1,7 +1,0 @@
-{
-  "name": "agentrouter-auto-login",
-  "version": "1.0.0",
-  "private": true,
-  "type": "module",
-  "description": "agentrouter.org 每日真实登录签到（GitHub OAuth 授权跳转，登录即到账 +$25；纯 HTTP，无浏览器依赖）"
-}

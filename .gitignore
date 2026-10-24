@@ -2,29 +2,20 @@
 .agentrouter_creds.json
 .agentrouter_login.json
 
-# GitHub 会话 cookie / 自动化登录状态（敏感）
+# 自动化登录状态与调试产物（敏感或临时）
 auto-login/github-cookies.txt
 auto-login/last-result.json
 auto-login/secret-input.json
-auto-login/daily-log.txt
-auto-login/run.txt
-auto-login/consent-run.txt
-auto-login/debug*.txt
-auto-login/probe*.txt
-auto-login/probe*.html
-auto-login/checkin-resp.json
-auto-login/live*.json
-auto-login/login-probe-result.json
-auto-login/email-login-state.json
-auto-login/verify-email.txt
-auto-login/probe-email.txt
-auto-login/bundle.js
+auto-login/*.txt
+auto-login/*.html
+auto-login/*.json
 auto-login/profile/
 
 # 本地测试产物
 *.log
 .dryrun/
 node_modules/
+agentrouter-checkin-worker/test-out.txt
 
 # wrangler 本地缓存与状态
 .wrangler/
