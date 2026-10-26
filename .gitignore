@@ -1,8 +1,6 @@
-# 真实凭据，禁止入库
 .agentrouter_creds.json
 .agentrouter_login.json
 
-# 自动化登录状态与调试产物（敏感或临时）
 auto-login/github-cookies.txt
 auto-login/last-result.json
 auto-login/secret-input.json
@@ -11,11 +9,15 @@ auto-login/*.html
 auto-login/*.json
 auto-login/profile/
 
-# 本地测试产物
 *.log
 .dryrun/
 node_modules/
-agentrouter-checkin-worker/test-out.txt
+test-out.txt
+.dev.vars
+.env
+.env.*
+*.local
+.DS_Store
+test/cookie.txt
 
-# wrangler 本地缓存与状态
 .wrangler/
