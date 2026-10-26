@@ -1,3 +1,10 @@
+const BRANDS = {
+  jnn: { initial: "J", accent: "#2563eb" },
+  gm: { initial: "G", accent: "#7c3aed" },
+  plus: { initial: "P", accent: "#0891b2" },
+  ag: { initial: "A", accent: "#16a34a" },
+};
+
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({
     "&": "&amp;",
@@ -32,8 +39,9 @@ function historyRows(items) {
 }
 
 export function renderPage(view) {
-  const historyItems = (view.history || []).slice(0, 12);
-  const rows = historyRows(historyItems);
+  const brand = BRANDS[view.worker.id] || { initial: "C", accent: "#0b57d0" };
+  const recent = (view.history || []).slice(0, 12);
+  const rows = historyRows(recent);
   const history = rows || `<tr><td colspan="3" class="empty">暂无记录</td></tr>`;
   return `<!doctype html>
 <html lang="zh-CN">
@@ -41,26 +49,27 @@ export function renderPage(view) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme:light)">
-<meta name="theme-color" content="#151515" media="(prefers-color-scheme:dark)">
+<meta name="theme-color" content="#f4f6f8" media="(prefers-color-scheme:light)">
+<meta name="theme-color" content="#111214" media="(prefers-color-scheme:dark)">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230b57d0'/%3E%3Cpath stroke='%23fff' stroke-width='2' d='M6 12h12M12 6v12'/%3E%3C/svg%3E">
 <title>${esc(view.worker.name)}</title>
 <style>
-:root{color-scheme:light;--font:"Roboto","Noto Sans SC",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;--primary:#0b57d0;--on-primary:#fff;--surface:#f5f6f8;--panel:#fff;--text:#1f1f1f;--muted:#5f6368;--line:#dfe1e5;--ok:#146c2e;--ok-bg:#e3f4e8;--bad:#b3261e;--bad-bg:#f9e2e0;--warn:#755600;--warn-bg:#fff0c2;--wait:#4c4f55;--wait-bg:#eceef1;--info:#075c86;--info-bg:#e0f2fc}
-@media(prefers-color-scheme:dark){:root{color-scheme:dark;--primary:#a8c7fa;--on-primary:#062e6f;--surface:#151515;--panel:#1f1f1f;--text:#e6e6e6;--muted:#b9bcc1;--line:#3b3b3d;--ok:#92dba5;--ok-bg:#163b22;--bad:#f2b8b5;--bad-bg:#4b211e;--warn:#ffd77a;--warn-bg:#443500;--wait:#d5d7db;--wait-bg:#37383c;--info:#9dd4f5;--info-bg:#173b4d}}
+:root{color-scheme:light;--font:"Roboto","Noto Sans SC",-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;--primary:#0b57d0;--on-primary:#fff;--page:#f4f6f8;--panel:#fff;--soft:#f8fafc;--text:#1b1f24;--muted:#626a73;--line:#e3e7eb;--ok:#176b34;--ok-bg:#e7f6ec;--bad:#ad2b23;--bad-bg:#fce9e7;--warn:#745600;--warn-bg:#fff3cf;--wait:#555d66;--wait-bg:#eef1f4;--info:#0b628b;--info-bg:#e5f3fa}
+@media(prefers-color-scheme:dark){:root{color-scheme:dark;--primary:#a8c7fa;--on-primary:#062e6f;--page:#111214;--panel:#1b1c1f;--soft:#222429;--text:#eceef0;--muted:#b1b7be;--line:#34373c;--ok:#9be0ac;--ok-bg:#173c24;--bad:#f3b7b1;--bad-bg:#49211d;--warn:#ffd87a;--warn-bg:#433500;--wait:#d5d9dd;--wait-bg:#34373c;--info:#a3d9f4;--info-bg:#173c4e}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
-body{margin:0;min-height:100vh;font:14px/1.5 var(--font);color:var(--text);background:var(--surface);-webkit-font-smoothing:antialiased}
-.page{width:min(900px,calc(100% - 32px));margin:32px auto;background:var(--panel);border:1px solid var(--line);border-radius:10px}
-.head{display:flex;align-items:center;gap:16px;padding:18px 20px;border-bottom:1px solid var(--line)}
-.title{min-width:0;flex:1}
-.title h1{margin:0;font-size:19px;line-height:26px;font-weight:600}
+body{margin:0;min-height:100vh;font:14px/1.5 var(--font);color:var(--text);background:var(--page);-webkit-font-smoothing:antialiased}
+.shell{width:min(860px,calc(100% - 32px));margin:36px auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(22,31,42,.055)}
+.head{display:flex;align-items:center;gap:14px;padding:20px 22px}
+.mark{display:grid;place-items:center;width:40px;height:40px;flex:none;border-radius:11px;background:${brand.accent};color:#fff;font-size:17px;font-weight:700}
+.title{flex:1;min-width:0}
+.title h1{margin:0;font-size:20px;line-height:27px;font-weight:650;letter-spacing:-.15px}
 .title p{margin:1px 0 0;color:var(--muted);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-button{height:36px;padding:0 16px;border:1px solid transparent;border-radius:6px;background:var(--primary);color:var(--on-primary);font:500 13px var(--font);cursor:pointer;white-space:nowrap}
+button{height:38px;padding:0 17px;border:0;border-radius:8px;background:var(--primary);color:var(--on-primary);font:600 13px var(--font);cursor:pointer;white-space:nowrap}
 button:disabled{opacity:.55;cursor:wait}
-.summary{padding:18px 20px;border-bottom:1px solid var(--line)}
-.status{display:flex;align-items:flex-start;gap:10px}
-.badge{display:inline-flex;align-items:center;gap:6px;min-height:25px;padding:0 8px;border-radius:5px;font-size:12px;font-weight:600;white-space:nowrap}
+.overview{padding:18px 22px 0;border-top:1px solid var(--line)}
+.status{display:flex;align-items:flex-start;gap:10px;min-height:28px}
+.badge{display:inline-flex;align-items:center;gap:6px;min-height:25px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
 .badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
 .badge.ok{background:var(--ok-bg);color:var(--ok)}
 .badge.bad{background:var(--bad-bg);color:var(--bad)}
@@ -68,42 +77,41 @@ button:disabled{opacity:.55;cursor:wait}
 .badge.wait{background:var(--wait-bg);color:var(--wait)}
 .badge.info{background:var(--info-bg);color:var(--info)}
 .hint{min-width:0;padding-top:2px;color:var(--muted);font-size:13px}
-.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin:16px 0 0;padding:14px 0;border-block:1px solid var(--line)}
-.metric{min-width:0;padding:0 12px;border-left:1px solid var(--line)}
-.metric:first-child{padding-left:0;border-left:0}
-.metric:last-child{padding-right:0}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:14px}
+.metric{min-width:0;padding:11px 12px;border:1px solid var(--line);border-radius:9px;background:var(--soft)}
 .metric span{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.metric strong{display:block;margin-top:3px;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-.schedule{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px;color:var(--muted);font-size:12px}
-.schedule b{color:var(--text);font-weight:500;font-variant-numeric:tabular-nums}
+.metric strong{display:block;margin-top:3px;font-size:16px;line-height:22px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.schedule{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:14px;padding:13px 0 16px;border-bottom:1px solid var(--line);color:var(--muted);font-size:12px}
+.schedule b{color:var(--text);font-weight:550;font-variant-numeric:tabular-nums}
 .sep{width:3px;height:3px;border-radius:50%;background:var(--line)}
 .note{margin-left:auto;color:var(--muted)}
-.history{padding:16px 20px 20px}
-.history-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}
-.history-head h2{margin:0;font-size:14px;font-weight:600}
+.history{padding:18px 22px 22px}
+.history-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:7px}
+.history-head h2{margin:0;font-size:14px;font-weight:650}
 .history-head span{color:var(--muted);font-size:11px}
 .table-wrap{overflow-x:auto}
 table{width:100%;border-collapse:collapse;table-layout:fixed}
-th{padding:7px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:500;text-align:left}
-td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{padding:7px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:550;text-align:left}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
 tr:last-child td{border-bottom:0}
 th:first-child,td:first-child{width:124px}
-th:nth-child(2),td:nth-child(2){width:82px}
+th:nth-child(2),td:nth-child(2){width:84px}
 td.date{font-variant-numeric:tabular-nums;white-space:nowrap}
 td.date span{display:block;color:var(--muted);font-size:11px}
 td .badge{min-height:22px;padding:0 6px;font-size:11px}
 td.message{color:var(--muted);word-break:break-word;overflow-wrap:anywhere}
 .empty{height:64px;color:var(--muted);text-align:center}
-@media(max-width:620px){.page{width:100%;margin:0;border:0;border-radius:0}.head,.summary,.history{padding-left:14px;padding-right:14px}.head{gap:10px}.title h1{font-size:17px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr));padding:0;border-block:0}.metric{padding:12px 10px;border-left:0;border-bottom:1px solid var(--line)}.metric:nth-child(odd){padding-left:0}.metric:nth-child(even){border-left:1px solid var(--line)}.metric:nth-last-child(-n+2){border-bottom:0}.schedule{gap:6px 10px}.note{width:100%;margin-left:0}th:first-child,td:first-child{width:92px}th:nth-child(2),td:nth-child(2){width:70px}}
+@media(max-width:620px){.shell{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.head,.overview,.history{padding-left:15px;padding-right:15px}.head{padding-top:17px;padding-bottom:17px}.mark{width:36px;height:36px;border-radius:10px}.title h1{font-size:18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule{gap:6px 9px}.note{width:100%;margin-left:0}th:first-child,td:first-child{width:94px}th:nth-child(2),td:nth-child(2){width:70px}}
 </style>
 </head>
 <body>
-<main class="page">
+<main class="shell">
   <header class="head">
+    <div class="mark">${esc(brand.initial)}</div>
     <div class="title"><h1>${esc(view.worker.name)}</h1><p>${esc(view.worker.site)} · 每日自动签到</p></div>
     <button id="checkin" type="button">立即签到</button>
   </header>
-  <section class="summary">
+  <section class="overview">
     <div class="status">${badge(view.todayStatus)}<div class="hint">${esc(view.todayStatus.hint || "")}</div></div>
     <div class="metrics">
       ${view.stats.map((item) => `<div class="metric"><span>${esc(item.label)}</span><strong>${esc(item.value)}</strong></div>`).join("")}
@@ -115,7 +123,7 @@ td.message{color:var(--muted);word-break:break-word;overflow-wrap:anywhere}
     </div>
   </section>
   <section class="history">
-    <div class="history-head"><h2>最近记录</h2><span>最近 ${esc(historyItems.length)} 条</span></div>
+    <div class="history-head"><h2>最近记录</h2><span>最近 ${esc(recent.length)} 条</span></div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>时间</th><th>结果</th><th>说明</th></tr></thead>
