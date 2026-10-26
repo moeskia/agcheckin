@@ -96,6 +96,7 @@ body{margin:0;min-height:100vh;font:14px/1.5 var(--font);color:var(--text);backg
 .stat .key{display:block;color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stat .value{display:block;margin-top:3px;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid color-mix(in srgb,var(--line) 70%,transparent);color:var(--muted);font-size:12px}
+.run-times{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0}
 .foot b{color:var(--text);font-weight:500;font-variant-numeric:tabular-nums}
 .foot .sep{width:3px;height:3px;border-radius:50%;background:var(--line)}
 .actions{margin-left:auto;display:flex;align-items:center;gap:8px}
@@ -120,7 +121,7 @@ td.date span{display:block;color:var(--muted);font-size:11px}
 td .badge{height:24px;padding:0 8px;font-size:11px}
 td.message{color:var(--muted);word-break:break-word;overflow-wrap:anywhere}
 .empty{height:72px;text-align:center;color:var(--muted)}
-@media(max-width:700px){.appbar-inner,.wrap{padding-left:12px;padding-right:12px}.updated{display:none}.card{padding:16px;border-radius:16px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.actions{width:100%;margin-left:0;flex-wrap:wrap}.actions button{flex:1 1 0;min-width:0;white-space:nowrap}.action-note{order:3;width:100%;min-height:0}.status{flex-direction:column;gap:7px}.hint{padding-top:0}th:first-child,td:first-child{width:96px}th:nth-child(2),td:nth-child(2){width:72px}}
+@media(max-width:700px){.appbar-inner,.wrap{padding-left:12px;padding-right:12px}.updated{display:none}.card{padding:16px;border-radius:16px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.foot{flex-direction:column;align-items:stretch;gap:12px}.actions{width:auto;margin-left:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.actions button{width:100%;min-width:0;white-space:nowrap}.action-note{grid-column:1/-1;min-height:0}.status{flex-direction:column;gap:7px}.hint{padding-top:0}th:first-child,td:first-child{width:96px}th:nth-child(2),td:nth-child(2){width:72px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
@@ -141,8 +142,10 @@ td.message{color:var(--muted);word-break:break-word;overflow-wrap:anywhere}
     <div class="status">${badge(view.todayStatus)}<div class="hint">${esc(view.todayStatus.hint || "")}</div></div>
     <div class="stats">${stats(view.stats)}</div>
     <div class="foot">
-      <span>上次 <b>${esc(view.lastRun.time || "—")}</b></span><span class="sep"></span>
-      <span>下次 <b>${esc(bjTime(view.nextRun))}</b></span>
+      <div class="run-times">
+        <span>上次 <b>${esc(view.lastRun.time || "—")}</b></span><span class="sep"></span>
+        <span>下次 <b>${esc(bjTime(view.nextRun))}</b></span>
+      </div>
       <div class="actions">
         <span class="action-note" id="action-note"></span>
         <button id="refresh" type="button">刷新</button>
