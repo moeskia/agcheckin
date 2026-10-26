@@ -17,11 +17,14 @@ class MockKV {
 }
 
 function assertView(view) {
+  assert.deepEqual(Object.keys(view), ["ok", "worker", "now", "nextRun", "todayStatus", "stats", "lastRun", "history"]);
   assert.equal(view.ok, true);
   assert.deepEqual(Object.keys(view.worker), ["id", "name", "site", "cron"]);
   assert.equal(view.stats.length, 4);
+  assert.deepEqual(Object.keys(view.stats[0]), ["label", "value"]);
   assert.deepEqual(Object.keys(view.todayStatus), ["kind", "text", "hint"]);
   assert.deepEqual(Object.keys(view.lastRun), ["time", "kind", "status", "message"]);
+  if (view.history.length) assert.deepEqual(Object.keys(view.history[0]), ["date", "time", "kind", "status", "message"]);
 }
 
 test("agentrouter unified worker routes and check-in", async () => {
@@ -77,8 +80,12 @@ test("agentrouter unified worker routes and check-in", async () => {
     assert.ok(env.CHECKIN_KV.values.has("session"));
 
     assert.equal((await worker.fetch(new Request("https://test/api/checkin"), env)).status, 405);
+    assert.equal((await worker.fetch(new Request("https://test/api/status", { method: "POST" }), env)).status, 405);
+    assert.equal((await worker.fetch(new Request("https://test/health", { method: "POST" }), env)).status, 405);
+    assert.equal((await worker.fetch(new Request("https://test/", { method: "POST" }), env)).status, 405);
     assert.equal((await worker.fetch(new Request("https://test/checkin", { method: "POST" }), env)).status, 404);
     assert.equal((await worker.fetch(new Request("https://test/signin", { method: "POST" }), env)).status, 404);
+    assert.equal((await worker.fetch(new Request("https://test/history"), env)).status, 404);
   } finally {
     globalThis.fetch = originalFetch;
   }
