@@ -90,7 +90,7 @@ button:disabled{opacity:.55;cursor:wait}
 .history-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:7px}
 .history-head h2{margin:0;font-size:14px;font-weight:650}
 .history-head span{color:var(--muted);font-size:11px}
-.records{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:30px}
+.records{display:grid;grid-template-columns:1fr}
 .record{min-width:0;padding:10px 0;border-bottom:1px solid var(--line)}
 .record-top{display:flex;align-items:center;gap:7px;min-width:0}
 .record-top time{color:var(--text);font-size:12px;font-weight:550;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -98,7 +98,6 @@ button:disabled{opacity:.55;cursor:wait}
 .record .badge{min-height:21px;padding:0 6px;font-size:10.5px}
 .record p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.45;word-break:break-word;overflow-wrap:anywhere}
 .empty{grid-column:1/-1;height:56px;display:grid;place-items:center;color:var(--muted)}
-@media(max-width:720px){.records{grid-template-columns:1fr;column-gap:0}}
 @media(max-width:620px){.shell{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.head,.overview,.history{padding-left:15px;padding-right:15px}.head{padding-top:17px;padding-bottom:17px}.mark{width:36px;height:36px;border-radius:10px}.title h1{font-size:18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule{gap:6px 9px}.note{width:100%;margin-left:0}}
 </style>
 </head>
