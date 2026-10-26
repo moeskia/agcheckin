@@ -120,7 +120,7 @@ td.date span{display:block;color:var(--muted);font-size:11px}
 td .badge{height:24px;padding:0 8px;font-size:11px}
 td.message{color:var(--muted);word-break:break-word;overflow-wrap:anywhere}
 .empty{height:72px;text-align:center;color:var(--muted)}
-@media(max-width:700px){.appbar-inner,.wrap{padding-left:12px;padding-right:12px}.updated{display:none}.card{padding:16px;border-radius:16px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.actions{width:100%;margin-left:0}.actions button{flex:1}.action-note{order:3;width:100%}.status{flex-direction:column;gap:7px}.hint{padding-top:0}th:first-child,td:first-child{width:96px}th:nth-child(2),td:nth-child(2){width:72px}}
+@media(max-width:700px){.appbar-inner,.wrap{padding-left:12px;padding-right:12px}.updated{display:none}.card{padding:16px;border-radius:16px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.actions{width:100%;margin-left:0;flex-wrap:wrap}.actions button{flex:1 1 0;min-width:0;white-space:nowrap}.action-note{order:3;width:100%;min-height:0}.status{flex-direction:column;gap:7px}.hint{padding-top:0}th:first-child,td:first-child{width:96px}th:nth-child(2),td:nth-child(2){width:72px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
