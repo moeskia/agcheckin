@@ -98,7 +98,7 @@ button:disabled{opacity:.55;cursor:wait}
 .record .badge{min-height:23px;padding:0 7px;font-size:12px}
 .record-message{min-width:0;color:var(--muted);font-size:13px;line-height:1.45;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .empty{height:52px;display:grid;place-items:center;color:var(--muted)}
-@media(max-width:620px){.shell{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.head,.overview,.history{padding-left:16px;padding-right:16px}.head{padding-top:18px;padding-bottom:18px}.mark{width:38px;height:38px;border-radius:10px}.title h1{font-size:20px;line-height:28px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule{gap:6px 9px}.note{width:100%;margin-left:0}.record{grid-template-columns:1fr auto;gap:4px 8px;padding:11px 6px}.record-date{grid-column:1;grid-row:1}.record-time{grid-column:1;grid-row:2}.record .badge{grid-column:2;grid-row:1;justify-self:end}.record-message{grid-column:2;grid-row:2;text-align:right}}
+@media(max-width:620px){.shell{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.head,.overview,.history{padding-left:16px;padding-right:16px}.head{padding-top:18px;padding-bottom:18px}.mark{width:38px;height:38px;border-radius:10px}.title h1{font-size:20px;line-height:28px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule{gap:6px 9px}.note{width:100%;margin-left:0}.record{grid-template-columns:96px minmax(0,1fr);align-items:start;gap:3px 10px;padding:11px 6px}.record-date{grid-column:1;grid-row:1}.record-time{grid-column:1;grid-row:2}.record .badge{grid-column:2;grid-row:1;justify-self:start}.record-message{grid-column:2;grid-row:2;text-align:left}}
 </style>
 </head>
 <body>
