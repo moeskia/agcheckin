@@ -31,18 +31,19 @@ function badge(item) {
 
 function historyRows(items) {
   return items.map((item) => `
-    <tr>
-      <td class="date">${esc(item.date)}<span>${esc(item.time || "")}</span></td>
-      <td>${badge(item)}</td>
-      <td class="message">${esc(item.message || "")}</td>
-    </tr>`).join("");
+    <article class="record">
+      <div class="record-top">
+        <time>${esc(item.date)}</time><span class="record-time">${esc(item.time || "")}</span>${badge(item)}
+      </div>
+      <p>${esc(item.message || "")}</p>
+    </article>`).join("");
 }
 
 export function renderPage(view) {
   const brand = BRANDS[view.worker.id] || { initial: "C", accent: "#0b57d0" };
   const recent = (view.history || []).slice(0, 12);
   const rows = historyRows(recent);
-  const history = rows || `<tr><td colspan="3" class="empty">暂无记录</td></tr>`;
+  const history = rows || `<div class="empty">暂无记录</div>`;
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -89,19 +90,16 @@ button:disabled{opacity:.55;cursor:wait}
 .history-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:7px}
 .history-head h2{margin:0;font-size:14px;font-weight:650}
 .history-head span{color:var(--muted);font-size:11px}
-.table-wrap{overflow-x:auto}
-table{width:100%;border-collapse:collapse;table-layout:fixed}
-th{padding:7px 8px;border-bottom:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:550;text-align:left}
-td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
-tr:last-child td{border-bottom:0}
-th:first-child,td:first-child{width:124px}
-th:nth-child(2),td:nth-child(2){width:84px}
-td.date{font-variant-numeric:tabular-nums;white-space:nowrap}
-td.date span{display:block;color:var(--muted);font-size:11px}
-td .badge{min-height:22px;padding:0 6px;font-size:11px}
-td.message{color:var(--muted);word-break:break-word;overflow-wrap:anywhere}
-.empty{height:64px;color:var(--muted);text-align:center}
-@media(max-width:620px){.shell{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.head,.overview,.history{padding-left:15px;padding-right:15px}.head{padding-top:17px;padding-bottom:17px}.mark{width:36px;height:36px;border-radius:10px}.title h1{font-size:18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule{gap:6px 9px}.note{width:100%;margin-left:0}th:first-child,td:first-child{width:94px}th:nth-child(2),td:nth-child(2){width:70px}}
+.records{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:30px}
+.record{min-width:0;padding:10px 0;border-bottom:1px solid var(--line)}
+.record-top{display:flex;align-items:center;gap:7px;min-width:0}
+.record-top time{color:var(--text);font-size:12px;font-weight:550;font-variant-numeric:tabular-nums;white-space:nowrap}
+.record-time{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.record .badge{min-height:21px;padding:0 6px;font-size:10.5px}
+.record p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.45;word-break:break-word;overflow-wrap:anywhere}
+.empty{grid-column:1/-1;height:56px;display:grid;place-items:center;color:var(--muted)}
+@media(max-width:720px){.records{grid-template-columns:1fr;column-gap:0}}
+@media(max-width:620px){.shell{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.head,.overview,.history{padding-left:15px;padding-right:15px}.head{padding-top:17px;padding-bottom:17px}.mark{width:36px;height:36px;border-radius:10px}.title h1{font-size:18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule{gap:6px 9px}.note{width:100%;margin-left:0}}
 </style>
 </head>
 <body>
@@ -124,12 +122,7 @@ td.message{color:var(--muted);word-break:break-word;overflow-wrap:anywhere}
   </section>
   <section class="history">
     <div class="history-head"><h2>最近记录</h2><span>最近 ${esc(recent.length)} 条</span></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>时间</th><th>结果</th><th>说明</th></tr></thead>
-        <tbody>${history}</tbody>
-      </table>
-    </div>
+    <div class="records">${history}</div>
   </section>
 </main>
 <script>
