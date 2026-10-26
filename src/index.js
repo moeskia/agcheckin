@@ -52,32 +52,47 @@ function recordStatus(record) {
   return record.ok ? "成功" : "失败";
 }
 
-function historyItem(record) {
-  let message = "";
+function signinLabel(signin) {
+  if (!signin) return "";
+  if (signin.ok === false) return "自动登录失败";
+  if (signin.checked_in) return "自动登录并签到成功";
+  return "已自动登录";
+}
+
+function recordMessage(record) {
   if (!record.ok) {
-    message = String(record.error || "").slice(0, 160);
-  } else if (record.reward != null) {
-    message = record.reward >= REWARD_THRESHOLD
-      ? `奖励 +$25 到账 · 余额 ${money(record.balance)}`
-      : `奖励未到账 · 余额 ${money(record.balance)}`;
-  } else {
-    message = `余额 ${money(record.balance)}`;
+    return String(record.error || "").slice(0, 160);
   }
+  const parts = [signinLabel(record.signin)];
+  if (record.reward != null) {
+    parts.push(record.reward >= REWARD_THRESHOLD ? "奖励 +$25 到账" : "奖励未到账");
+  }
+  parts.push(`余额 ${money(record.balance)}`);
+  return parts.filter(Boolean).join(" · ");
+}
+
+function historyItem(record) {
   return {
     date: record.date || "—",
     time: record.ts ? bjTime(record.ts).slice(11) : "—",
     kind: recordKind(record),
     status: recordStatus(record),
-    message,
+    message: recordMessage(record),
   };
 }
 
 async function buildStatus(env, now = Date.now()) {
   const state = await readState(env);
   const last = state.last || state.history[0] || null;
+  const latestBalance = state.history.find((item) => item?.ok && item.balance != null)
+    || (last?.ok ? last : null);
   const today = beijingDate(now);
   const todayRecord = state.history.find((item) => item && item.date === today) || null;
   const signin = todayRecord?.signin || null;
+  const identity = [
+    last?.username ? `账号 ${last.username}` : "",
+    last?.group ? `分组 ${last.group}` : "",
+  ].filter(Boolean).join(" · ");
   let todayStatus;
   if (!todayRecord) {
     todayStatus = {
@@ -95,25 +110,25 @@ async function buildStatus(env, now = Date.now()) {
     todayStatus = {
       kind: "info",
       text: "今日已检查",
-      hint: "无上日对比，奖励状态待定",
+      hint: [signinLabel(signin), identity, "无上日对比，奖励状态待定"].filter(Boolean).join(" · "),
     };
   } else if (todayRecord.reward >= REWARD_THRESHOLD) {
     todayStatus = {
       kind: "ok",
       text: "奖励 +$25 到账",
-      hint: signin?.ok ? "自动登录签到已生效" : "检测到余额增加",
+      hint: [signinLabel(signin), identity, signin?.ok ? "" : "检测到余额增加"].filter(Boolean).join(" · "),
     };
   } else if (signin && signin.ok === false) {
     todayStatus = {
       kind: "warn",
       text: "自动签到失败",
-      hint: String(signin.error || "").slice(0, 120),
+      hint: [identity, String(signin.error || "").slice(0, 120)].filter(Boolean).join(" · "),
     };
   } else {
     todayStatus = {
       kind: "warn",
       text: "奖励未到账",
-      hint: "已登录但当日奖励未增加",
+      hint: [signinLabel(signin), identity, "当日奖励未增加"].filter(Boolean).join(" · "),
     };
   }
   return {
@@ -123,16 +138,16 @@ async function buildStatus(env, now = Date.now()) {
     nextRun: nextRun(WORKER.cron, now),
     todayStatus,
     stats: [
-      { label: "当前余额", value: last ? money(last.balance) : "—" },
-      { label: "较上次", value: last ? deltaValue(last.delta) : "—" },
-      { label: "已用", value: last ? money(last.used) : "—" },
+      { label: "当前余额", value: latestBalance ? money(latestBalance.balance) : "—" },
+      { label: "较上次", value: latestBalance ? deltaValue(latestBalance.delta) : "—" },
+      { label: "已用", value: latestBalance ? money(latestBalance.used) : "—" },
       { label: "连续奖励", value: `${rewardStreak(state.history, today)} 天` },
     ],
     lastRun: {
       time: last ? bjTime(last.ts) : "—",
       kind: recordKind(last),
       status: recordStatus(last),
-      message: last?.ok ? "" : String(last?.error || ""),
+      message: last ? recordMessage(last) : "",
     },
     history: state.history.slice(0, 30).map(historyItem),
   };

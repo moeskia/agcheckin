@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { beijingDate } from "../src/checkin.js";
 import worker from "../src/index.js";
 
 class MockKV {
@@ -77,6 +78,11 @@ test("agentrouter unified worker routes and check-in", async () => {
     assert.equal(view.todayStatus.kind, "info");
     assert.equal(view.stats[0].value, "$200.00");
     assert.equal(view.history.length, 1);
+    assert.match(view.todayStatus.hint, /账号 Tester/);
+    assert.match(view.todayStatus.hint, /分组 core/);
+    assert.match(view.todayStatus.hint, /自动登录并签到成功/);
+    assert.match(view.lastRun.message, /余额 \$200\.00/);
+    assert.match(view.history[0].message, /自动登录并签到成功/);
     assert.ok(env.CHECKIN_KV.values.has("session"));
 
     assert.equal((await worker.fetch(new Request("https://test/api/checkin"), env)).status, 405);
@@ -100,4 +106,31 @@ test("agentrouter records missing credentials and tolerates malformed KV", async
   const failed = await (await worker.fetch(new Request("https://test/api/checkin", { method: "POST" }), env)).json();
   assert.equal(failed.todayStatus.kind, "bad");
   assert.equal(failed.history.length, 1);
+});
+
+test("agentrouter keeps the latest balance after a failed check", async () => {
+  const now = Date.now();
+  const history = [
+    { date: beijingDate(now), ts: now, ok: false, error: "request failed" },
+    {
+      date: beijingDate(now - 86400000),
+      ts: now - 86400000,
+      ok: true,
+      balance: "120.00",
+      used: "30.00",
+      delta: 25,
+      reward: 25,
+    },
+  ];
+  const env = {
+    CHECKIN_KV: new MockKV({
+      last: JSON.stringify(history[0]),
+      history: JSON.stringify(history),
+    }),
+  };
+  const view = await (await worker.fetch(new Request("https://test/api/status"), env)).json();
+  assert.equal(view.todayStatus.kind, "bad");
+  assert.equal(view.stats[0].value, "$120.00");
+  assert.equal(view.stats[1].value, "+$25");
+  assert.equal(view.stats[2].value, "$30.00");
 });
