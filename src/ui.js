@@ -70,7 +70,7 @@ button{height:38px;padding:0 17px;border:0;border-radius:8px;background:var(--pr
 button:disabled{opacity:.55;cursor:wait}
 .overview{padding:18px 22px 0;border-top:1px solid var(--line)}
 .status{display:flex;align-items:flex-start;gap:10px;min-height:28px}
-.badge{display:inline-flex;align-items:center;gap:6px;min-height:25px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;justify-self:start;width:max-content;gap:6px;min-height:25px;padding:0 8px;border-radius:6px;font-size:12px;font-weight:600;white-space:nowrap}
 .badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
 .badge.ok{background:var(--ok-bg);color:var(--ok)}
 .badge.bad{background:var(--bad-bg);color:var(--bad)}
