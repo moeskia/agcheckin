@@ -32,10 +32,10 @@ function badge(item) {
 function historyRows(items) {
   return items.map((item) => `
     <article class="record">
-      <div class="record-top">
-        <time>${esc(item.date)}</time><span class="record-time">${esc(item.time || "")}</span>${badge(item)}
-      </div>
-      <p>${esc(item.message || "")}</p>
+      <time class="record-date">${esc(item.date)}</time>
+      <span class="record-time">${esc(item.time || "")}</span>
+      ${badge(item)}
+      <span class="record-message" title="${esc(item.message || "")}">${esc(item.message || "")}</span>
     </article>`).join("");
 }
 
@@ -90,15 +90,15 @@ button:disabled{opacity:.55;cursor:wait}
 .history-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:7px}
 .history-head h2{margin:0;font-size:14px;font-weight:650}
 .history-head span{color:var(--muted);font-size:11px}
-.records{display:grid;grid-template-columns:1fr}
-.record{min-width:0;padding:10px 0;border-bottom:1px solid var(--line)}
-.record-top{display:flex;align-items:center;gap:7px;min-width:0}
-.record-top time{color:var(--text);font-size:12px;font-weight:550;font-variant-numeric:tabular-nums;white-space:nowrap}
+.records{border-top:1px solid var(--line)}
+.record{display:grid;grid-template-columns:92px 58px 64px minmax(0,1fr);align-items:center;gap:10px;min-width:0;padding:9px 8px;border-bottom:1px solid var(--line)}
+.record:nth-child(odd){background:var(--soft)}
+.record-date{color:var(--text);font-size:12px;font-weight:550;font-variant-numeric:tabular-nums;white-space:nowrap}
 .record-time{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .record .badge{min-height:21px;padding:0 6px;font-size:10.5px}
-.record p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.45;word-break:break-word;overflow-wrap:anywhere}
-.empty{grid-column:1/-1;height:56px;display:grid;place-items:center;color:var(--muted)}
-@media(max-width:620px){.shell{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.head,.overview,.history{padding-left:15px;padding-right:15px}.head{padding-top:17px;padding-bottom:17px}.mark{width:36px;height:36px;border-radius:10px}.title h1{font-size:18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule{gap:6px 9px}.note{width:100%;margin-left:0}}
+.record-message{min-width:0;color:var(--muted);font-size:12px;line-height:1.4;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.empty{height:52px;display:grid;place-items:center;color:var(--muted)}
+@media(max-width:620px){.shell{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.head,.overview,.history{padding-left:15px;padding-right:15px}.head{padding-top:17px;padding-bottom:17px}.mark{width:36px;height:36px;border-radius:10px}.title h1{font-size:18px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule{gap:6px 9px}.note{width:100%;margin-left:0}.record{grid-template-columns:1fr auto;gap:3px 8px;padding:10px 6px}.record-date{grid-column:1;grid-row:1}.record-time{grid-column:1;grid-row:2}.record .badge{grid-column:2;grid-row:1;justify-self:end}.record-message{grid-column:2;grid-row:2;text-align:right}}
 </style>
 </head>
 <body>
