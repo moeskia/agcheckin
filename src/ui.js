@@ -96,7 +96,10 @@ button:disabled{opacity:.55;cursor:wait}
 .record-date{color:var(--text);font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
 .record-time{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .record .badge{min-height:23px;padding:0 7px;font-size:12px}
-.record-message{min-width:0;color:var(--muted);font-size:13px;line-height:1.45;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.record-message{min-width:0;color:var(--muted);font-size:13px;line-height:1.45;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
+.record-message.expanded{display:block;-webkit-line-clamp:unset}
+.hint{cursor:pointer}
+.hint.expanded{display:block;-webkit-line-clamp:unset}
 .empty{height:52px;display:grid;place-items:center;color:var(--muted)}
 @media(max-width:620px){.shell{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.head,.overview,.history{padding-left:16px;padding-right:16px}.head{padding-top:18px;padding-bottom:18px}.mark{width:38px;height:38px;border-radius:10px}.title h1{font-size:20px;line-height:28px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule{gap:6px 9px}.note{width:100%;margin-left:0}.record{grid-template-columns:96px minmax(0,1fr);align-items:start;gap:3px 10px;padding:11px 6px}.record-date{grid-column:1;grid-row:1}.record-time{grid-column:1;grid-row:2}.record .badge{grid-column:2;grid-row:1;justify-self:start}.record-message{grid-column:2;grid-row:2;text-align:left}}
 </style>
@@ -109,34 +112,76 @@ button:disabled{opacity:.55;cursor:wait}
     <button id="checkin" type="button">立即签到</button>
   </header>
   <section class="overview">
-    <div class="status">${badge(view.todayStatus)}<div class="hint">${esc(view.todayStatus.hint || "")}</div></div>
-    <div class="metrics">
+    <div class="status" id="status-box">${badge(view.todayStatus)}<div class="hint" title="${esc(view.todayStatus.hint || "")}">${esc(view.todayStatus.hint || "")}</div></div>
+    <div class="metrics" id="metrics-box">
       ${view.stats.map((item) => `<div class="metric"><span>${esc(item.label)}</span><strong>${esc(item.value)}</strong></div>`).join("")}
     </div>
     <div class="schedule">
-      <span>上次 <b>${esc(view.lastRun.time || "—")}</b></span><span class="sep"></span>
-      <span>下次 <b>${esc(bjTime(view.nextRun))}</b></span>
+      <span>上次 <b id="last-time">${esc(view.lastRun.time || "—")}</b></span><span class="sep"></span>
+      <span>下次 <b id="next-time">${esc(bjTime(view.nextRun))}</b></span>
       <span class="note" id="note" aria-live="polite"></span>
     </div>
   </section>
   <section class="history">
-    <div class="history-head"><h2>最近记录</h2><span>最近 ${esc(recent.length)} 条</span></div>
-    <div class="records">${history}</div>
+    <div class="history-head"><h2>最近记录</h2><span id="history-count">最近 ${esc(recent.length)} 条</span></div>
+    <div class="records" id="records-box">${history}</div>
   </section>
 </main>
 <script>
 const checkin=document.getElementById("checkin");
 const note=document.getElementById("note");
+document.addEventListener("click",(e)=>{
+  const t=e.target.closest(".hint, .record-message");
+  if(t)t.classList.toggle("expanded");
+});
+function escJs(s){
+  return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function bjTimeJs(v){
+  if(!v)return"—";
+  const d=new Date(Number(v));
+  if(isNaN(d.getTime()))return String(v);
+  return new Date(d.getTime()+8*3600*1000).toISOString().slice(0,19).replace("T"," ");
+}
+function badgeJs(item){
+  return '<span class="badge '+escJs(item.kind)+'"><span class="dot"></span>'+escJs(item.status||item.text)+'</span>';
+}
 checkin.addEventListener("click",async()=>{
   checkin.disabled=true;
-  note.textContent="正在签到";
+  note.textContent="正在签到...";
   try{
     const response=await fetch("/api/checkin",{method:"POST",headers:{Accept:"application/json"}});
     const data=await response.json();
     if(!response.ok||!data.ok)throw new Error(data.error?.message||"签到失败");
-    location.reload();
+    note.textContent="签到成功！";
+    if(data.todayStatus){
+      const statusBox=document.getElementById("status-box");
+      if(statusBox)statusBox.innerHTML=badgeJs(data.todayStatus)+'<div class="hint" title="'+escJs(data.todayStatus.hint||'')+'">'+escJs(data.todayStatus.hint||'')+'</div>';
+    }
+    if(data.stats){
+      const metricsBox=document.getElementById("metrics-box");
+      if(metricsBox)metricsBox.innerHTML=data.stats.map(s=>'<div class="metric"><span>'+escJs(s.label)+'</span><strong>'+escJs(s.value)+'</strong></div>').join("");
+    }
+    if(data.lastRun){
+      const lastTime=document.getElementById("last-time");
+      if(lastTime)lastTime.textContent=data.lastRun.time||"—";
+    }
+    if(data.nextRun){
+      const nextTime=document.getElementById("next-time");
+      if(nextTime)nextTime.textContent=bjTimeJs(data.nextRun);
+    }
+    if(data.history){
+      const recent=data.history.slice(0,12);
+      const countEl=document.getElementById("history-count");
+      if(countEl)countEl.textContent="最近 "+recent.length+" 条";
+      const recordsBox=document.getElementById("records-box");
+      if(recordsBox){
+        recordsBox.innerHTML=recent.length?recent.map(item=>'<article class="record"><time class="record-date">'+escJs(item.date)+'</time><span class="record-time">'+escJs(item.time||"")+'</span>'+badgeJs(item)+'<span class="record-message" title="'+escJs(item.message||"")+'">'+escJs(item.message||"")+'</span></article>').join(""):'<div class="empty">暂无记录</div>';
+      }
+    }
   }catch(error){
     note.textContent=error instanceof Error?error.message:"签到失败";
+  }finally{
     checkin.disabled=false;
   }
 });
