@@ -1,8 +1,9 @@
+import { ICONS_BASE64 } from "./icons.js";
 const BRANDS = {
-  jnn: { initial: "J", accent: "#2563eb" },
-  gm: { initial: "G", accent: "#7c3aed" },
-  plus: { initial: "P", accent: "#0891b2" },
-  ag: { initial: "A", accent: "#16a34a" },
+  jnn: { initial: "J", accent: "#2563eb", icon: ICONS_BASE64.jnn },
+  gm: { initial: "G", accent: "#7c3aed", icon: ICONS_BASE64.gm },
+  plus: { initial: "P", accent: "#0891b2", icon: ICONS_BASE64.plus },
+  ag: { initial: "A", accent: "#16a34a", icon: ICONS_BASE64.ag },
 };
 
 function esc(value) {
@@ -29,9 +30,9 @@ function badge(item) {
   return `<span class="badge ${esc(item.kind)}"><span class="dot"></span>${esc(item.status || item.text)}</span>`;
 }
 
-function historyRows(items) {
+function historyRows(items, workerName) {
   return items.map((item) => `
-    <article class="record">
+    <article class="record" data-worker="${esc(workerName || '')}" data-date="${esc(item.date)}" data-time="${esc(item.time || '')}" data-status="${esc(item.status)}" data-kind="${esc(item.kind)}" data-msg="${esc(item.message || '')}">
       <time class="record-date">${esc(item.date)}</time>
       <span class="record-time">${esc(item.time || "")}</span>
       ${badge(item)}
@@ -42,7 +43,7 @@ function historyRows(items) {
 export function renderPage(view) {
   const brand = BRANDS[view.worker.id] || { initial: "C", accent: "#0b57d0" };
   const recent = (view.history || []).slice(0, 12);
-  const rows = historyRows(recent);
+  const rows = historyRows(recent, view.worker.name);
   const history = rows || `<div class="empty">暂无记录</div>`;
   return `<!doctype html>
 <html lang="zh-CN">
@@ -52,7 +53,7 @@ export function renderPage(view) {
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#f4f6f8" media="(prefers-color-scheme:light)">
 <meta name="theme-color" content="#111214" media="(prefers-color-scheme:dark)">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%230b57d0'/%3E%3Cpath stroke='%23fff' stroke-width='2' d='M6 12h12M12 6v12'/%3E%3C/svg%3E">
+<link rel="icon" href="${esc(brand.icon || "")}">
 <title>${esc(view.worker.name)}</title>
 <style>
 :root{color-scheme:light;--font:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;--primary:#0b57d0;--on-primary:#fff;--page:#f4f6f8;--panel:#fff;--soft:#f8fafc;--text:#1b1f24;--muted:#626a73;--line:#e3e7eb;--ok:#176b34;--ok-bg:#e7f6ec;--bad:#ad2b23;--bad-bg:#fce9e7;--warn:#745600;--warn-bg:#fff3cf;--wait:#555d66;--wait-bg:#eef1f4;--info:#0b628b;--info-bg:#e5f3fa}
@@ -62,14 +63,15 @@ html{-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100vh;font:15px/1.55 var(--font);color:var(--text);background:var(--page);-webkit-font-smoothing:antialiased}
 .shell{width:min(900px,calc(100% - 32px));margin:36px auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(22,31,42,.055)}
 .head{display:flex;align-items:center;gap:14px;padding:22px 24px}
-.mark{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:11px;background:${brand.accent};color:#fff;font-size:18px;font-weight:600}
+.mark{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:11px;background:color-mix(in srgb,${brand.accent} 15%,var(--soft));border:1px solid color-mix(in srgb,${brand.accent} 28%,transparent);color:#fff;font-size:18px;font-weight:600;overflow:hidden}
+.mark-img{width:26px;height:26px;object-fit:contain;border-radius:4px;display:block}
 .title{flex:1;min-width:0}
 .title h1{margin:0;font-size:22px;line-height:30px;font-weight:600}
 .title p{margin:2px 0 0;color:var(--muted);font-size:13px;line-height:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 button{height:40px;padding:0 18px;border:0;border-radius:8px;background:var(--primary);color:var(--on-primary);font:600 14px var(--font);cursor:pointer;white-space:nowrap}
 button:disabled{opacity:.55;cursor:wait}
 .overview{padding:20px 24px 0;border-top:1px solid var(--line)}
-.status{display:flex;align-items:flex-start;gap:10px;min-height:28px}
+.status{display:flex;align-items:center;gap:10px;min-height:28px}
 .badge{display:inline-flex;align-items:center;justify-self:start;width:max-content;gap:6px;min-height:26px;padding:0 9px;border-radius:6px;font-size:13px;font-weight:600;white-space:nowrap}
 .badge .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
 .badge.ok{background:var(--ok-bg);color:var(--ok)}
@@ -77,7 +79,7 @@ button:disabled{opacity:.55;cursor:wait}
 .badge.warn{background:var(--warn-bg);color:var(--warn)}
 .badge.wait{background:var(--wait-bg);color:var(--wait)}
 .badge.info{background:var(--info-bg);color:var(--info)}
-.hint{min-width:0;padding-top:2px;color:var(--muted);font-size:14px;line-height:22px}
+.hint{min-width:0;padding-top:0;color:var(--muted);font-size:14px;line-height:22px}
 .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:14px}
 .metric{min-width:0;padding:12px 13px;border:1px solid var(--line);border-radius:9px;background:var(--soft)}
 .metric span{display:block;color:var(--muted);font-size:12px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -91,13 +93,17 @@ button:disabled{opacity:.55;cursor:wait}
 .history-head h2{margin:0;font-size:16px;line-height:24px;font-weight:600}
 .history-head span{color:var(--muted);font-size:12px}
 .records{border-top:1px solid var(--line)}
-.record{display:grid;grid-template-columns:96px 62px 68px minmax(0,1fr);align-items:center;gap:10px;min-width:0;padding:10px 8px;border-bottom:1px solid var(--line)}
+.record{display:grid;grid-template-columns:96px 62px 68px minmax(0,1fr);align-items:center;gap:10px;min-width:0;padding:10px 8px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .15s ease}
+.record:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
+.record.expanded{background:color-mix(in srgb,var(--primary) 8%,transparent)}
 .record:nth-child(odd){background:var(--soft)}
+.record:nth-child(odd):hover{background:color-mix(in srgb,var(--text) 5%,var(--soft))}
+.record:nth-child(odd).expanded{background:color-mix(in srgb,var(--primary) 8%,transparent)}
 .record-date{color:var(--text);font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
 .record-time{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .record .badge{min-height:23px;padding:0 7px;font-size:12px}
-.record-message{min-width:0;color:var(--muted);font-size:13px;line-height:1.45;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;cursor:pointer}
-.record-message.expanded{display:block;-webkit-line-clamp:unset}
+.record-message{min-width:0;color:var(--muted);font-size:13px;line-height:1.45;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.record.expanded .record-message,.record-message.expanded{display:block;-webkit-line-clamp:unset}
 .hint{cursor:pointer}
 .hint.expanded{display:block;-webkit-line-clamp:unset}
 .empty{height:52px;display:grid;place-items:center;color:var(--muted)}
@@ -107,7 +113,7 @@ button:disabled{opacity:.55;cursor:wait}
 <body>
 <main class="shell">
   <header class="head">
-    <div class="mark">${esc(brand.initial)}</div>
+    <div class="mark">${brand.icon ? `<img class="mark-img" src="${esc(brand.icon)}" alt="" width="26" height="26"${view.worker.id === "plus" ? ' style="image-rendering:pixelated;"' : ""}>` : esc(brand.initial)}</div>
     <div class="title"><h1>${esc(view.worker.name)}</h1><p>${esc(view.worker.site)} · 每日自动签到</p></div>
     <button id="checkin" type="button">立即签到</button>
   </header>
@@ -131,7 +137,12 @@ button:disabled{opacity:.55;cursor:wait}
 const checkin=document.getElementById("checkin");
 const note=document.getElementById("note");
 document.addEventListener("click",(e)=>{
-  const t=e.target.closest(".hint, .record-message");
+  const row = e.target.closest(".record");
+  if(row){
+    row.classList.toggle("expanded");
+    return;
+  }
+  const t=e.target.closest(".hint");
   if(t)t.classList.toggle("expanded");
 });
 function escJs(s){
@@ -176,7 +187,7 @@ checkin.addEventListener("click",async()=>{
       if(countEl)countEl.textContent="最近 "+recent.length+" 条";
       const recordsBox=document.getElementById("records-box");
       if(recordsBox){
-        recordsBox.innerHTML=recent.length?recent.map(item=>'<article class="record"><time class="record-date">'+escJs(item.date)+'</time><span class="record-time">'+escJs(item.time||"")+'</span>'+badgeJs(item)+'<span class="record-message" title="'+escJs(item.message||"")+'">'+escJs(item.message||"")+'</span></article>').join(""):'<div class="empty">暂无记录</div>';
+        recordsBox.innerHTML=recent.length?recent.map(item=>'<article class="record" data-worker="'+escJs(data.worker?.name||"")+'" data-date="'+escJs(item.date)+'" data-time="'+escJs(item.time||"")+'" data-status="'+escJs(item.status)+'" data-kind="'+escJs(item.kind)+'" data-msg="'+escJs(item.message||"")+'"><time class="record-date">'+escJs(item.date)+'</time><span class="record-time">'+escJs(item.time||"")+'</span>'+badgeJs(item)+'<span class="record-message" title="'+escJs(item.message||"")+'">'+escJs(item.message||"")+'</span></article>').join(""):'<div class="empty">暂无记录</div>';
       }
     }
   }catch(error){

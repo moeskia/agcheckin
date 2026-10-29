@@ -61,14 +61,21 @@ function signinLabel(signin) {
 
 function recordMessage(record) {
   if (!record.ok) {
-    return String(record.error || "").slice(0, 160);
+    return String(record.error || "未知异常");
   }
   const parts = [signinLabel(record.signin)];
   if (record.reward != null) {
     parts.push(record.reward >= REWARD_THRESHOLD ? "奖励 +$25 到账" : "奖励未到账");
+  } else if (record.delta != null) {
+    parts.push(`变动 ${deltaValue(record.delta)}`);
   }
-  parts.push(`余额 ${money(record.balance)}`);
-  return parts.filter(Boolean).join(" · ");
+  if (record.balance != null) {
+    parts.push(`余额 ${money(record.balance)}`);
+  }
+  if (record.used != null) {
+    parts.push(`已用 ${money(record.used)}`);
+  }
+  return parts.filter(Boolean).join(" · ") || "正常";
 }
 
 function historyItem(record) {
