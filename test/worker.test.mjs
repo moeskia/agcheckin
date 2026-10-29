@@ -46,8 +46,9 @@ async function assertRouting(env) {
 
 test("agentrouter unified worker routes and check-in", async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (url) => {
+  globalThis.fetch = async (url, options) => {
     if (String(url).endsWith("/api/user/login")) {
+      assert.deepEqual(JSON.parse(options.body), { username: "test@example.com", password: "test-password" });
       return Response.json(
         {
           success: true,
@@ -56,6 +57,8 @@ test("agentrouter unified worker routes and check-in", async () => {
         { headers: { "Set-Cookie": "session=new-session; Path=/" } },
       );
     }
+    assert.equal(options.headers.Cookie, "session=new-session");
+    assert.equal(options.headers["new-api-user"], "1");
     return Response.json({
       success: true,
       data: {

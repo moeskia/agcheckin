@@ -40,10 +40,6 @@ function captureCookies(response, jar) {
   } catch {}
 }
 
-function jarHeader(jar) {
-  return Object.entries(jar).map(([key, value]) => `${key}=${value}`).join("; ");
-}
-
 async function signInEmail(env) {
   const result = { ok: false, checked_in: false, error: "" };
   if (!env.AGENTROUTER_EMAIL || !env.AGENTROUTER_PASSWORD) {
@@ -60,7 +56,6 @@ async function signInEmail(env) {
         "Content-Type": "application/json",
         Referer: `${SITE}/login`,
         "Cache-Control": "no-store",
-        Cookie: jarHeader(jar),
       },
       body: JSON.stringify({
         username: env.AGENTROUTER_EMAIL,
@@ -79,7 +74,6 @@ async function signInEmail(env) {
     result.ok = true;
     result.checked_in = Boolean(data.data.checked_in);
     result.session = jar.session || null;
-    result.username = data.data.display_name || data.data.username || String(data.data.id);
   } catch (error) {
     result.error = String(error?.message || error).slice(0, 200);
   }

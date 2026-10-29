@@ -1,10 +1,4 @@
-import { ICONS_BASE64 } from "./icons.js";
-const BRANDS = {
-  jnn: { initial: "J", accent: "#2563eb", icon: ICONS_BASE64.jnn },
-  gm: { initial: "G", accent: "#7c3aed", icon: ICONS_BASE64.gm },
-  plus: { initial: "P", accent: "#0891b2", icon: ICONS_BASE64.plus },
-  ag: { initial: "A", accent: "#16a34a", icon: ICONS_BASE64.ag },
-};
+import { ICON } from "./icons.js";
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -30,9 +24,9 @@ function badge(item) {
   return `<span class="badge ${esc(item.kind)}"><span class="dot"></span>${esc(item.status || item.text)}</span>`;
 }
 
-function historyRows(items, workerName) {
+function historyRows(items) {
   return items.map((item) => `
-    <article class="record" data-worker="${esc(workerName || '')}" data-date="${esc(item.date)}" data-time="${esc(item.time || '')}" data-status="${esc(item.status)}" data-kind="${esc(item.kind)}" data-msg="${esc(item.message || '')}">
+    <article class="record">
       <time class="record-date">${esc(item.date)}</time>
       <span class="record-time">${esc(item.time || "")}</span>
       ${badge(item)}
@@ -41,9 +35,8 @@ function historyRows(items, workerName) {
 }
 
 export function renderPage(view) {
-  const brand = BRANDS[view.worker.id] || { initial: "C", accent: "#0b57d0" };
   const recent = (view.history || []).slice(0, 12);
-  const rows = historyRows(recent, view.worker.name);
+  const rows = historyRows(recent);
   const history = rows || `<div class="empty">暂无记录</div>`;
   return `<!doctype html>
 <html lang="zh-CN">
@@ -53,7 +46,7 @@ export function renderPage(view) {
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#f4f6f8" media="(prefers-color-scheme:light)">
 <meta name="theme-color" content="#111214" media="(prefers-color-scheme:dark)">
-<link rel="icon" href="${esc(brand.icon || "")}">
+<link rel="icon" href="${esc(ICON)}">
 <title>${esc(view.worker.name)}</title>
 <style>
 :root{color-scheme:light;--font:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;--primary:#0b57d0;--on-primary:#fff;--page:#f4f6f8;--panel:#fff;--soft:#f8fafc;--text:#1b1f24;--muted:#626a73;--line:#e3e7eb;--ok:#176b34;--ok-bg:#e7f6ec;--bad:#ad2b23;--bad-bg:#fce9e7;--warn:#745600;--warn-bg:#fff3cf;--wait:#555d66;--wait-bg:#eef1f4;--info:#0b628b;--info-bg:#e5f3fa}
@@ -63,7 +56,7 @@ html{-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100vh;font:15px/1.55 var(--font);color:var(--text);background:var(--page);-webkit-font-smoothing:antialiased}
 .shell{width:min(900px,calc(100% - 32px));margin:36px auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(22,31,42,.055)}
 .head{display:flex;align-items:center;gap:14px;padding:22px 24px}
-.mark{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:11px;background:color-mix(in srgb,${brand.accent} 15%,var(--soft));border:1px solid color-mix(in srgb,${brand.accent} 28%,transparent);color:#fff;font-size:18px;font-weight:600;overflow:hidden}
+.mark{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:11px;background:color-mix(in srgb,#16a34a 15%,var(--soft));border:1px solid color-mix(in srgb,#16a34a 28%,transparent);color:#fff;font-size:18px;font-weight:600;overflow:hidden}
 .mark-img{width:26px;height:26px;object-fit:contain;border-radius:4px;display:block}
 .title{flex:1;min-width:0}
 .title h1{margin:0;font-size:22px;line-height:30px;font-weight:600}
@@ -113,7 +106,7 @@ button:disabled{opacity:.55;cursor:wait}
 <body>
 <main class="shell">
   <header class="head">
-    <div class="mark">${brand.icon ? `<img class="mark-img" src="${esc(brand.icon)}" alt="" width="26" height="26"${view.worker.id === "plus" ? ' style="image-rendering:pixelated;"' : ""}>` : esc(brand.initial)}</div>
+    <div class="mark"><img class="mark-img" src="${esc(ICON)}" alt="" width="26" height="26"></div>
     <div class="title"><h1>${esc(view.worker.name)}</h1><p>${esc(view.worker.site)} · 每日自动签到</p></div>
     <button id="checkin" type="button">立即签到</button>
   </header>
@@ -187,7 +180,7 @@ checkin.addEventListener("click",async()=>{
       if(countEl)countEl.textContent="最近 "+recent.length+" 条";
       const recordsBox=document.getElementById("records-box");
       if(recordsBox){
-        recordsBox.innerHTML=recent.length?recent.map(item=>'<article class="record" data-worker="'+escJs(data.worker?.name||"")+'" data-date="'+escJs(item.date)+'" data-time="'+escJs(item.time||"")+'" data-status="'+escJs(item.status)+'" data-kind="'+escJs(item.kind)+'" data-msg="'+escJs(item.message||"")+'"><time class="record-date">'+escJs(item.date)+'</time><span class="record-time">'+escJs(item.time||"")+'</span>'+badgeJs(item)+'<span class="record-message" title="'+escJs(item.message||"")+'">'+escJs(item.message||"")+'</span></article>').join(""):'<div class="empty">暂无记录</div>';
+        recordsBox.innerHTML=recent.length?recent.map(item=>'<article class="record"><time class="record-date">'+escJs(item.date)+'</time><span class="record-time">'+escJs(item.time||"")+'</span>'+badgeJs(item)+'<span class="record-message" title="'+escJs(item.message||"")+'">'+escJs(item.message||"")+'</span></article>').join(""):'<div class="empty">暂无记录</div>';
       }
     }
   }catch(error){
