@@ -28,6 +28,22 @@ function assertView(view) {
   if (view.history.length) assert.deepEqual(Object.keys(view.history[0]), ["date", "time", "kind", "status", "message"]);
 }
 
+const ROUTES = [
+  ["/api/checkin", "GET", 405],
+  ["/api/status", "POST", 405],
+  ["/health", "POST", 405],
+  ["/", "POST", 405],
+  ["/checkin", "POST", 404],
+  ["/signin", "POST", 404],
+  ["/history", "GET", 404],
+];
+
+async function assertRouting(env) {
+  for (const [path, method, want] of ROUTES) {
+    assert.equal((await worker.fetch(new Request(`https://test${path}`, { method }), env)).status, want, `${method} ${path}`);
+  }
+}
+
 test("agentrouter unified worker routes and check-in", async () => {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
@@ -85,13 +101,7 @@ test("agentrouter unified worker routes and check-in", async () => {
     assert.match(view.history[0].message, /自动登录并签到成功/);
     assert.ok(env.CHECKIN_KV.values.has("session"));
 
-    assert.equal((await worker.fetch(new Request("https://test/api/checkin"), env)).status, 405);
-    assert.equal((await worker.fetch(new Request("https://test/api/status", { method: "POST" }), env)).status, 405);
-    assert.equal((await worker.fetch(new Request("https://test/health", { method: "POST" }), env)).status, 405);
-    assert.equal((await worker.fetch(new Request("https://test/", { method: "POST" }), env)).status, 405);
-    assert.equal((await worker.fetch(new Request("https://test/checkin", { method: "POST" }), env)).status, 404);
-    assert.equal((await worker.fetch(new Request("https://test/signin", { method: "POST" }), env)).status, 404);
-    assert.equal((await worker.fetch(new Request("https://test/history"), env)).status, 404);
+    await assertRouting(env);
   } finally {
     globalThis.fetch = originalFetch;
   }
