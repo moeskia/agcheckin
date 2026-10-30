@@ -26,18 +26,18 @@ function badge(item) {
 
 function historyRows(items) {
   return items.map((item) => `
-    <article class="record">
-      <time class="record-date">${esc(item.date)}</time>
-      <span class="record-time">${esc(item.time || "")}</span>
-      ${badge(item)}
-      <span class="record-message" title="${esc(item.message || "")}">${esc(item.message || "")}</span>
-    </article>`).join("");
+    <tr class="record">
+      <td class="col-date">${esc(item.date)}</td>
+      <td class="col-time">${esc(item.time || "")}</td>
+      <td class="col-status">${badge(item)}</td>
+      <td class="col-msg" title="${esc(item.message || "")}"><div class="msg-inner">${esc(item.message || "")}</div></td>
+    </tr>`).join("");
 }
 
 export function renderPage(view) {
   const recent = (view.history || []).slice(0, 12);
   const rows = historyRows(recent);
-  const history = rows || `<div class="empty">暂无记录</div>`;
+  const history = rows || `<tr class="empty-row"><td colspan="4" class="empty">暂无记录</td></tr>`;
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -85,22 +85,50 @@ button:disabled{opacity:.55;cursor:wait}
 .history-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}
 .history-head h2{margin:0;font-size:16px;line-height:24px;font-weight:600}
 .history-head span{color:var(--muted);font-size:12px}
-.records{border-top:1px solid var(--line)}
-.record{display:grid;grid-template-columns:96px 62px 68px minmax(0,1fr);align-items:center;gap:10px;min-width:0;padding:10px 8px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .15s ease}
-.record:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
-.record.expanded{background:color-mix(in srgb,var(--primary) 8%,transparent)}
-.record:nth-child(odd){background:var(--soft)}
-.record:nth-child(odd):hover{background:color-mix(in srgb,var(--text) 5%,var(--soft))}
-.record:nth-child(odd).expanded{background:color-mix(in srgb,var(--primary) 8%,transparent)}
-.record-date{color:var(--text);font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
-.record-time{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.record .badge{min-height:23px;padding:0 7px;font-size:12px}
-.record-message{min-width:0;color:var(--muted);font-size:13px;line-height:1.45;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.record.expanded .record-message,.record-message.expanded{display:block;-webkit-line-clamp:unset}
+.table-wrap{margin-top:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
+.history-table{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:13px;text-align:left}
+.history-table th{padding:10px 12px;font-size:12px;font-weight:600;color:var(--muted);background:var(--soft);border-bottom:1px solid var(--line);white-space:nowrap;letter-spacing:.2px}
+.col-date{width:100px}
+.col-time{width:76px}
+.col-status{width:82px}
+.col-msg{width:auto}
+.history-table td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle;transition:background-color .15s ease}
+.history-table tbody tr:last-child td{border-bottom:none}
+.history-table tbody tr.record{cursor:pointer}
+.history-table tbody tr.record:nth-child(even){background:color-mix(in srgb,var(--soft) 55%,transparent)}
+.history-table tbody tr.record:hover td{background:color-mix(in srgb,var(--text) 4%,transparent)}
+.history-table tbody tr.record.expanded td{background:color-mix(in srgb,var(--primary) 8%,transparent)}
+.history-table .col-date{font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;color:var(--text);white-space:nowrap}
+.history-table .col-time{font-size:12px;font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+.history-table .col-status .badge{min-height:23px;padding:0 7px;font-size:12px}
+.history-table .col-msg{color:var(--muted);font-size:13px;line-height:1.45}
+.msg-inner{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;word-break:break-word;transition:color .15s ease}
+.history-table tbody tr.record.expanded .msg-inner{display:block;-webkit-line-clamp:unset;color:var(--text)}
+.empty-row td.empty{padding:32px 16px;text-align:center;color:var(--muted);font-size:13px}
 .hint{cursor:pointer}
 .hint.expanded{display:block;-webkit-line-clamp:unset}
-.empty{height:52px;display:grid;place-items:center;color:var(--muted)}
-@media(max-width:620px){.shell{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}.head,.overview,.history{padding-left:16px;padding-right:16px}.head{padding-top:18px;padding-bottom:18px}.mark{width:38px;height:38px;border-radius:10px}.title h1{font-size:20px;line-height:28px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.schedule{gap:6px 9px}.note{width:100%;margin-left:0}.record{grid-template-columns:96px minmax(0,1fr);align-items:start;gap:3px 10px;padding:11px 6px}.record-date{grid-column:1;grid-row:1}.record-time{grid-column:1;grid-row:2}.record .badge{grid-column:2;grid-row:1;justify-self:start}.record-message{grid-column:2;grid-row:2;text-align:left}}
+@media(max-width:620px){
+.shell{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}
+.head,.overview,.history{padding-left:16px;padding-right:16px}
+.head{padding-top:18px;padding-bottom:18px}
+.mark{width:38px;height:38px;border-radius:10px}
+.title h1{font-size:20px;line-height:28px}
+.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+.schedule{gap:6px 9px}
+.note{width:100%;margin-left:0}
+.table-wrap{border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.history-table,.history-table thead,.history-table tbody,.history-table tr,.history-table th,.history-table td{display:block}
+.history-table thead{display:none}
+.history-table tbody tr.record{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:"date time status" "msg msg msg";gap:4px 8px;align-items:center;padding:12px 10px;border-bottom:1px solid var(--line)}
+.history-table tbody tr.record:last-child{border-bottom:none}
+.history-table td{padding:0;border-bottom:none}
+.history-table td.col-date{grid-area:date;width:auto;font-size:13px;font-weight:600;color:var(--text)}
+.history-table td.col-time{grid-area:time;width:auto;font-size:12px;color:var(--muted)}
+.history-table td.col-status{grid-area:status;width:auto;justify-self:end}
+.history-table td.col-msg{grid-area:msg;width:100%;font-size:13px;line-height:1.45;color:var(--muted);margin-top:2px}
+.history-table tbody tr.record.expanded td.col-msg .msg-inner{color:var(--text)}
+.empty-row td.empty{display:block;padding:28px 12px}
+}
 </style>
 </head>
 <body>
@@ -123,7 +151,19 @@ button:disabled{opacity:.55;cursor:wait}
   </section>
   <section class="history">
     <div class="history-head"><h2>最近记录</h2><span id="history-count">最近 ${esc(recent.length)} 条</span></div>
-    <div class="records" id="records-box">${history}</div>
+    <div class="table-wrap">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th class="col-date">日期</th>
+            <th class="col-time">时间</th>
+            <th class="col-status">状态</th>
+            <th class="col-msg">详情说明</th>
+          </tr>
+        </thead>
+        <tbody id="records-box">${history}</tbody>
+      </table>
+    </div>
   </section>
 </main>
 <script>
@@ -149,6 +189,14 @@ function bjTimeJs(v){
 }
 function badgeJs(item){
   return '<span class="badge '+escJs(item.kind)+'"><span class="dot"></span>'+escJs(item.status||item.text)+'</span>';
+}
+function rowJs(item){
+  return '<tr class="record">' +
+    '<td class="col-date">' + escJs(item.date) + '</td>' +
+    '<td class="col-time">' + escJs(item.time || "") + '</td>' +
+    '<td class="col-status">' + badgeJs(item) + '</td>' +
+    '<td class="col-msg" title="' + escJs(item.message || "") + '"><div class="msg-inner">' + escJs(item.message || "") + '</div></td>' +
+    '</tr>';
 }
 checkin.addEventListener("click",async()=>{
   checkin.disabled=true;
@@ -180,7 +228,7 @@ checkin.addEventListener("click",async()=>{
       if(countEl)countEl.textContent="最近 "+recent.length+" 条";
       const recordsBox=document.getElementById("records-box");
       if(recordsBox){
-        recordsBox.innerHTML=recent.length?recent.map(item=>'<article class="record"><time class="record-date">'+escJs(item.date)+'</time><span class="record-time">'+escJs(item.time||"")+'</span>'+badgeJs(item)+'<span class="record-message" title="'+escJs(item.message||"")+'">'+escJs(item.message||"")+'</span></article>').join(""):'<div class="empty">暂无记录</div>';
+        recordsBox.innerHTML=recent.length?recent.map(rowJs).join(""):'<tr class="empty-row"><td colspan="4" class="empty">暂无记录</td></tr>';
       }
     }
   }catch(error){
