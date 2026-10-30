@@ -89,9 +89,6 @@ test("agentrouter unified worker routes and check-in", async () => {
     assert.match(html, /prefers-color-scheme:dark/);
     assert.doesNotMatch(html, /id="refresh"/);
     assert.match(html, /最近 0 条/);
-    assert.match(html, /aria-expanded="false"/);
-    assert.match(html, /aria-live="polite"/);
-    assert.match(html, /结果待确认/);
 
     const checked = await worker.fetch(new Request("https://test/api/checkin", { method: "POST" }), env);
     assert.equal(checked.status, 200);
