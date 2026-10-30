@@ -236,16 +236,11 @@ export function rewardStreak(history, today) {
       .filter((item) => item.ok && item.reward != null && item.reward >= REWARD_THRESHOLD)
       .map((item) => item.date),
   );
-  let cursor = days.has(today) ? today : null;
-  if (!cursor) {
-    const dates = [...days].sort();
-    cursor = dates.length ? dates[dates.length - 1] : null;
-  }
+  let cursor = days.has(today) ? today : beijingDate(Date.parse(`${today}T00:00:00Z`) - 86400000);
   let length = 0;
-  while (cursor) {
+  while (days.has(cursor)) {
     length += 1;
     cursor = beijingDate(Date.parse(`${cursor}T00:00:00Z`) - 86400000);
-    if (!days.has(cursor)) break;
   }
   return length;
 }

@@ -157,7 +157,7 @@ checkin.addEventListener("click",async()=>{
     const response=await fetch("/api/checkin",{method:"POST",headers:{Accept:"application/json"}});
     const data=await response.json();
     if(!response.ok||!data.ok)throw new Error(data.error?.message||"签到失败");
-    note.textContent="签到成功！";
+    note.textContent=data.todayStatus.text;
     if(data.todayStatus){
       const statusBox=document.getElementById("status-box");
       if(statusBox)statusBox.innerHTML=badgeJs(data.todayStatus)+'<div class="hint" title="'+escJs(data.todayStatus.hint||'')+'">'+escJs(data.todayStatus.hint||'')+'</div>';
