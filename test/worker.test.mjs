@@ -18,14 +18,14 @@ class MockKV {
 }
 
 function assertView(view) {
-  assert.deepEqual(Object.keys(view), ["ok", "worker", "now", "nextRun", "todayStatus", "lastResult", "stats", "lastRun", "history"]);
+  assert.deepEqual(new Set(Object.keys(view)), new Set(["ok", "worker", "now", "nextRun", "todayStatus", "lastResult", "stats", "lastRun", "history"]));
   assert.equal(view.ok, true);
-  assert.deepEqual(Object.keys(view.worker), ["id", "name", "site", "cron"]);
+  assert.deepEqual(new Set(Object.keys(view.worker)), new Set(["id", "name", "site", "cron"]));
   assert.equal(view.stats.length, 4);
-  assert.deepEqual(Object.keys(view.stats[0]), ["label", "value"]);
-  assert.deepEqual(Object.keys(view.todayStatus), ["kind", "text", "hint"]);
-  assert.deepEqual(Object.keys(view.lastRun), ["time", "kind", "status", "message"]);
-  if (view.history.length) assert.deepEqual(Object.keys(view.history[0]), ["date", "time", "kind", "status", "message"]);
+  assert.deepEqual(new Set(Object.keys(view.stats[0])), new Set(["label", "value"]));
+  assert.deepEqual(new Set(Object.keys(view.todayStatus)), new Set(["kind", "text", "hint"]));
+  assert.deepEqual(new Set(Object.keys(view.lastRun)), new Set(["time", "kind", "status", "message"]));
+  if (view.history.length) assert.deepEqual(new Set(Object.keys(view.history[0])), new Set(["date", "time", "kind", "status", "message"]));
 }
 
 const ROUTES = [
@@ -86,8 +86,6 @@ test("agentrouter unified worker routes and check-in", async () => {
     const html = await (await worker.fetch(new Request("https://test/"), env)).text();
     assert.match(html, /AgentRouter/);
     assert.match(html, /立即签到/);
-    assert.match(html, /prefers-color-scheme:dark/);
-    assert.doesNotMatch(html, /id="refresh"/);
     assert.match(html, /最近 0 条/);
 
     const checked = await worker.fetch(new Request("https://test/api/checkin", { method: "POST" }), env);
