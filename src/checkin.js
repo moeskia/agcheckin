@@ -3,6 +3,7 @@ const SELF_URL = `${SITE}/api/user/self`;
 const QUOTA_PER_UNIT = 500000;
 const REWARD_THRESHOLD = 20;
 const MAX_ATTEMPTS = 3;
+const MAX_LOGIN_ATTEMPTS = 2;
 const HISTORY_LIMIT = 60;
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
 
@@ -12,18 +13,37 @@ export function beijingDate(value = Date.now()) {
   return new Date(value + 8 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
-function buildHeaders(env, session) {
-  const cookies = [`session=${session}`];
-  if (env.ACW_TC) cookies.push(`acw_tc=${env.ACW_TC}`);
-  return {
+function looksLikeHtml(text) {
+  return /^\s*<(?:!doctype|html)/i.test(String(text).slice(0, 200));
+}
+
+function cookieHeader(jar, extra = {}) {
+  const cookies = { ...extra, ...jar };
+  return Object.entries(cookies)
+    .filter(([key, value]) => key && value != null && value !== "")
+    .map(([key, value]) => `${key}=${value}`)
+    .join("; ");
+}
+
+function buildHeaders(env, session, jar = {}, mode = "cookie") {
+  const headers = {
     "User-Agent": USER_AGENT,
     Accept: "application/json, text/plain, */*",
     "Accept-Language": "zh-CN,zh;q=0.9",
     "Cache-Control": "no-store",
     Referer: `${SITE}/console`,
     "new-api-user": env.API_USER,
-    Cookie: cookies.join("; "),
   };
+  if (mode === "token" && env.AGENTROUTER_ACCESS_TOKEN) {
+    headers.Authorization = env.AGENTROUTER_ACCESS_TOKEN;
+    return headers;
+  }
+  const extra = {};
+  if (session) extra.session = session;
+  if (!jar.acw_tc && env.ACW_TC) extra.acw_tc = env.ACW_TC;
+  const cookies = cookieHeader(jar, extra);
+  if (cookies) headers.Cookie = cookies;
+  return headers;
 }
 
 function captureCookies(response, jar) {
@@ -40,42 +60,62 @@ function captureCookies(response, jar) {
   } catch {}
 }
 
-async function signInEmail(env) {
+async function signInEmail(env, jar = {}) {
   const result = { ok: false, checked_in: false, error: "" };
   if (!env.AGENTROUTER_EMAIL || !env.AGENTROUTER_PASSWORD) {
     result.error = "AGENTROUTER_EMAIL / AGENTROUTER_PASSWORD secret 未配置";
     return result;
   }
-  const jar = {};
-  try {
-    const response = await fetch(`${SITE}/api/user/login`, {
-      method: "POST",
-      headers: {
+  for (let attempt = 1; attempt <= MAX_LOGIN_ATTEMPTS; attempt += 1) {
+    try {
+      const headers = {
         "User-Agent": USER_AGENT,
         Accept: "application/json, text/plain, */*",
         "Content-Type": "application/json",
         Referer: `${SITE}/login`,
         "Cache-Control": "no-store",
-      },
-      body: JSON.stringify({
-        username: env.AGENTROUTER_EMAIL,
-        password: env.AGENTROUTER_PASSWORD,
-      }),
-    });
-    captureCookies(response, jar);
-    let data = null;
-    try {
-      data = await response.json();
-    } catch {}
-    if (!data || data.success !== true || !data.data) {
-      result.error = `密码登录失败: ${data?.message || "unknown"}`;
+      };
+      const cookies = cookieHeader(jar);
+      if (cookies) headers.Cookie = cookies;
+      const response = await fetch(`${SITE}/api/user/login`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          username: env.AGENTROUTER_EMAIL,
+          password: env.AGENTROUTER_PASSWORD,
+        }),
+      });
+      captureCookies(response, jar);
+      const text = await response.text();
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch {}
+      if (!data) {
+        result.error = looksLikeHtml(text)
+          ? `登录返回 HTML（HTTP ${response.status}，疑似 WAF 拦截）`
+          : `登录返回非 JSON（HTTP ${response.status}）`;
+        if (attempt < MAX_LOGIN_ATTEMPTS) {
+          await sleep(5000 * attempt);
+          continue;
+        }
+        return result;
+      }
+      if (data.success !== true || !data.data) {
+        result.error = `密码登录失败: ${data.message || "unknown"}`;
+        return result;
+      }
+      result.ok = true;
+      result.checked_in = Boolean(data.data.checked_in);
+      result.session = jar.session || null;
       return result;
+    } catch (error) {
+      result.error = String(error?.message || error).slice(0, 200);
+      if (attempt < MAX_LOGIN_ATTEMPTS) {
+        await sleep(5000 * attempt);
+        continue;
+      }
     }
-    result.ok = true;
-    result.checked_in = Boolean(data.data.checked_in);
-    result.session = jar.session || null;
-  } catch (error) {
-    result.error = String(error?.message || error).slice(0, 200);
   }
   return result;
 }
@@ -91,7 +131,8 @@ async function getSession(env) {
 
 async function doCheckin(env) {
   const date = beijingDate();
-  const signin = await signInEmail(env);
+  const jar = {};
+  const signin = await signInEmail(env, jar);
   let session = signin.ok && signin.session ? signin.session : null;
   if (session && env.CHECKIN_KV) {
     try {
@@ -110,7 +151,7 @@ async function doCheckin(env) {
       error: signin.ok ? "" : signin.error,
     },
   };
-  if (!session || !env.API_USER) {
+  if (!env.API_USER || (!session && !env.AGENTROUTER_ACCESS_TOKEN)) {
     return {
       ...base,
       ok: false,
@@ -120,11 +161,27 @@ async function doCheckin(env) {
 
   let lastError = "";
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    const mode = attempt === 2 && env.AGENTROUTER_ACCESS_TOKEN ? "token" : "cookie";
     try {
-      const response = await fetch(SELF_URL, { headers: buildHeaders(env, session), redirect: "follow" });
+      const response = await fetch(SELF_URL, { headers: buildHeaders(env, session, jar, mode), redirect: "follow" });
+      captureCookies(response, jar);
+      const text = await response.text();
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch {}
+      if (!data) {
+        lastError = looksLikeHtml(text)
+          ? `WAF challenge page (HTML, HTTP ${response.status})`
+          : `non-JSON response (HTTP ${response.status})`;
+        if (attempt < MAX_ATTEMPTS) {
+          await sleep(5000 * attempt);
+          continue;
+        }
+        return { ...base, ok: false, error: `request failed: ${lastError}`, ts: Date.now() };
+      }
       if (response.status === 200) {
-        const data = await response.json();
-        if (data && data.success === true && data.data) {
+        if (data.success === true && data.data) {
           const account = data.data;
           return {
             ...base,

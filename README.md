@@ -50,6 +50,7 @@ agCheckin/
 | `AGENTROUTER_EMAIL` | Secret | 登录邮箱 |
 | `AGENTROUTER_PASSWORD` | Secret | 登录密码 |
 | `API_USER` | Secret | `new-api-user` 请求头中的数字 ID |
+| `AGENTROUTER_ACCESS_TOKEN` | Secret | 可选，个人 API access token，快照接口的无 Cookie 兜底认证 |
 | `SESSION_COOKIE` | Secret | 可选，session 兜底 |
 | `ACW_TC` | Secret | 可选，WAF Cookie |
 | `NOTIFY_URL` | Secret | 可选，Webhook 地址 |

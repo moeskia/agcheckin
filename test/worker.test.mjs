@@ -229,6 +229,73 @@ test("agentrouter stores consumption-adjusted reward when balance falls after ch
 });
 
 
+test("agentrouter recovers from a WAF HTML challenge via captured cookies and token fallback", async () => {
+  const originalFetch = globalThis.fetch;
+  const html = "<!doctype html><html><body>acw challenge</body></html>";
+  const selfCalls = [];
+  globalThis.fetch = async (url, options) => {
+    if (String(url).endsWith("/api/user/login")) {
+      return Response.json({ success: true, data: { checked_in: true } }, { headers: { "Set-Cookie": "session=login-session; Path=/" } });
+    }
+    selfCalls.push({ auth: options.headers.Authorization, cookie: options.headers.Cookie });
+    if (selfCalls.length === 1) {
+      assert.equal(selfCalls[0].cookie, "session=login-session");
+      assert.equal(selfCalls[0].auth, undefined);
+      return new Response(html, { status: 200, headers: { "Content-Type": "text/html", "Set-Cookie": "acw_tc=challenge-cookie; Path=/" } });
+    }
+    assert.equal(selfCalls[1].auth, "tok-123");
+    assert.equal(selfCalls[1].cookie, undefined);
+    return Response.json({ success: true, data: { display_name: "Tester", quota: 100000000, used_quota: 50000000, group: "core" } });
+  };
+  try {
+    const env = {
+      CHECKIN_KV: new MockKV(),
+      AGENTROUTER_EMAIL: "test@example.com",
+      AGENTROUTER_PASSWORD: "test-password",
+      API_USER: "1",
+      AGENTROUTER_ACCESS_TOKEN: "tok-123",
+    };
+    const view = await (await worker.fetch(new Request("https://test/api/checkin", { method: "POST" }), env)).json();
+    assert.equal(selfCalls.length, 2);
+    assert.equal(view.todayStatus.kind, "info");
+    assert.equal(view.stats[0].value, "$200.00");
+    assert.match(view.history[0].message, /到账待核验/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("agentrouter classifies persistent WAF challenges and retries with captured acw_tc", async () => {
+  const originalFetch = globalThis.fetch;
+  const html = "<!doctype html><html><body>acw challenge</body></html>";
+  const selfCalls = [];
+  globalThis.fetch = async (url, options) => {
+    if (String(url).endsWith("/api/user/login")) {
+      return Response.json({ success: true, data: { checked_in: true } }, { headers: { "Set-Cookie": "session=login-session; Path=/" } });
+    }
+    selfCalls.push({ auth: options.headers.Authorization, cookie: options.headers.Cookie });
+    return new Response(html, { status: 200, headers: { "Content-Type": "text/html", "Set-Cookie": "acw_tc=challenge-cookie; Path=/" } });
+  };
+  try {
+    const env = {
+      CHECKIN_KV: new MockKV(),
+      AGENTROUTER_EMAIL: "test@example.com",
+      AGENTROUTER_PASSWORD: "test-password",
+      API_USER: "1",
+      AGENTROUTER_ACCESS_TOKEN: "tok-123",
+    };
+    const view = await (await worker.fetch(new Request("https://test/api/checkin", { method: "POST" }), env)).json();
+    assert.equal(selfCalls.length, 3);
+    assert.equal(selfCalls[1].auth, "tok-123");
+    assert.match(selfCalls[2].cookie, /acw_tc=challenge-cookie/);
+    assert.equal(view.todayStatus.kind, "bad");
+    assert.match(view.todayStatus.hint, /WAF challenge page \(HTML, HTTP 200\)/);
+    assert.doesNotMatch(view.todayStatus.hint, /Unexpected token/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 for (const [days, expected] of [
   [["2026-10-30", "2026-10-29"], 2],
   [["2026-10-29", "2026-10-28"], 2],
