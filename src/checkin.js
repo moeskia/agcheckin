@@ -160,8 +160,10 @@ async function doCheckin(env) {
   }
 
   let lastError = "";
+  const rejected = new Set();
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    const mode = attempt === 2 && env.AGENTROUTER_ACCESS_TOKEN ? "token" : "cookie";
+    const modes = [session && "cookie", env.AGENTROUTER_ACCESS_TOKEN && "token"].filter((mode) => mode && !rejected.has(mode));
+    const mode = modes[attempt === 2 && modes.length > 1 ? 1 : 0];
     try {
       const response = await fetch(SELF_URL, { headers: buildHeaders(env, session, jar, mode), redirect: "follow" });
       captureCookies(response, jar);
@@ -200,21 +202,11 @@ async function doCheckin(env) {
           ts: Date.now(),
         };
       }
-      if (response.status === 401) {
-        return {
-          ...base,
-          ok: false,
-          error: "HTTP 401: session cookie expired or invalid",
-          ts: Date.now(),
-        };
-      }
-      if (response.status === 403) {
-        return {
-          ...base,
-          ok: false,
-          error: "HTTP 403: blocked by WAF or invalid session",
-          ts: Date.now(),
-        };
+      if (response.status === 401 || response.status === 403) {
+        rejected.add(mode);
+        lastError = `HTTP ${response.status}: ${mode === "token" ? "access token" : "session cookie"} expired or invalid`;
+        if (attempt < MAX_ATTEMPTS && modes.some((candidate) => !rejected.has(candidate))) continue;
+        return { ...base, ok: false, error: lastError, ts: Date.now() };
       }
       lastError = `HTTP ${response.status}`;
       if (response.status >= 500 && attempt < MAX_ATTEMPTS) {
@@ -233,57 +225,57 @@ async function doCheckin(env) {
   return { ...base, ok: false, error: `request failed: ${lastError}`, ts: Date.now() };
 }
 
-async function storeResult(env, result) {
-  if (!env.CHECKIN_KV) return result;
-  try {
-    const raw = await env.CHECKIN_KV.get("history");
-    let history = [];
-    if (raw) {
-      try {
-        history = JSON.parse(raw);
-      } catch {}
-    }
-    if (!Array.isArray(history)) history = [];
-    history = history.filter((item) => item && item.date !== result.date);
-    const previous = history[0] || null;
-    let delta = null;
-    let consume = null;
-    let reward = null;
-    if (previous && previous.balance != null && result.balance != null) {
-      delta = Number((parseFloat(result.balance) - parseFloat(previous.balance)).toFixed(2));
-    }
-    if (previous && previous.used != null && result.used != null) {
-      consume = Number((parseFloat(result.used) - parseFloat(previous.used)).toFixed(2));
-    }
-    if (delta != null && consume != null) reward = Number((delta + consume).toFixed(2));
-    const record = { ...result, delta, consume, reward };
-    history.unshift(record);
-    await env.CHECKIN_KV.put("last", JSON.stringify(record));
-    await env.CHECKIN_KV.put("history", JSON.stringify(history.slice(0, HISTORY_LIMIT)));
-    return record;
-  } catch {
-    return result;
+function storageError(stage, key, result = null) {
+  return Object.assign(new Error("历史数据异常或存储不可用，记录未完整保存，请刷新核实"), { code: "storage_error", stage, key, result });
+}
+
+async function readStored(env, key) {
+  let raw;
+  try { raw = await env.CHECKIN_KV.get(key); } catch { throw storageError("read", key); }
+  if (raw === null) return null;
+  let value;
+  try { value = JSON.parse(raw); } catch { throw storageError("validate", key); }
+  const object = (item) => item !== null && typeof item === "object" && !Array.isArray(item);
+  if (key === "history" ? !Array.isArray(value) || !value.every(object) : !object(value)) {
+    throw Object.assign(storageError("validate", key), { rows: Array.isArray(value) ? value.filter(object) : [] });
   }
+  return value;
+}
+
+async function storeResult(env, result) {
+  let history;
+  try { history = (await readStored(env, "history")) ?? []; } catch (error) {
+    error.result = result;
+    throw error;
+  }
+  history = history.filter((item) => item.date !== result.date);
+  const previous = history[0] || null;
+  let delta = null;
+  let consume = null;
+  let reward = null;
+  if (previous && previous.balance != null && result.balance != null) {
+    delta = Number((parseFloat(result.balance) - parseFloat(previous.balance)).toFixed(2));
+  }
+  if (previous && previous.used != null && result.used != null) {
+    consume = Number((parseFloat(result.used) - parseFloat(previous.used)).toFixed(2));
+  }
+  if (delta != null && consume != null) reward = Number((delta + consume).toFixed(2));
+  const record = { ...result, delta, consume, reward };
+  history.unshift(record);
+  for (const [key, value] of [["history", history.slice(0, HISTORY_LIMIT)], ["last", record]]) {
+    try { await env.CHECKIN_KV.put(key, JSON.stringify(value)); } catch { throw storageError("write", key, record); }
+  }
+  return record;
 }
 
 export async function readState(env) {
-  const state = { last: null, history: [] };
-  if (!env.CHECKIN_KV) return state;
-  try {
-    const lastRaw = await env.CHECKIN_KV.get("last");
-    if (lastRaw) {
-      try {
-        state.last = JSON.parse(lastRaw);
-      } catch {}
+  const state = { last: null, history: [], error: null };
+  await Promise.all(["last", "history"].map(async (key) => {
+    try { state[key] = (await readStored(env, key)) ?? state[key]; } catch (error) {
+      state.error = error;
+      if (key === "history") state.history = error.rows ?? [];
     }
-    const historyRaw = await env.CHECKIN_KV.get("history");
-    if (historyRaw) {
-      try {
-        state.history = JSON.parse(historyRaw);
-      } catch {}
-    }
-    if (!Array.isArray(state.history)) state.history = [];
-  } catch {}
+  }));
   return state;
 }
 

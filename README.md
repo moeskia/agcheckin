@@ -76,3 +76,30 @@ npx wrangler deploy
 ```
 
 真实凭据仅保存在本机忽略文件与 Cloudflare Secrets 中。项目每日只执行一次登录签到和一次余额快照。
+
+## 存储失败与数据兼容
+
+只有 KV 的原始读取结果为 `null` 时才初始化历史。存储内容为 JSON `null`、损坏 JSON、非数组历史或非对象记录时，停止写回并保留原数据。旧记录可以缺少可选字段。页面与 `GET /api/status` 保持只读，有效旧记录可以继续展示，但会明确标记“历史数据异常”。
+
+`POST /api/checkin` 保存失败返回 HTTP 503，格式为 `{ ok: false, error: { code: "storage_error", message }, result }`。`result` 是已经取得的本次签到结果，不能将“保存失败”理解为上游没有签到；应刷新核实，不自动重复提交。正常成功响应格式不变。定时任务的存储错误日志只记录阶段、键名和结果状态，然后抛出异常。
+
+保存顺序为 `history` → `last`，前一步失败时停止后续写入。 KV 不提供多键事务和跨请求读改写锁，失败后不执行补偿覆盖，本修复也不承诺并发写入的强一致性。
+
+## 发布验证
+
+各仓库独立安装、测试和部署，不依赖其他仓库的源码。
+
+```powershell
+npm ci
+npm test
+npm run build
+npx wrangler deploy --dry-run
+```
+
+生产发布前备份 `history`、`last`，先发布签到 Worker 的数据保护修复，再发布 Dashboard，最后发布局部重构。Plus 旧迁移键继续保留。回滚代码不会回滚 KV；不要为了恢复旧行为而清空历史或重置统计。
+
+## 认证兜底与探测脚本
+
+有 Session 时先使用 Cookie，只有 Access Token 时首轮直接使用 Token。JSON 401/403 会切换尚未被拒绝的凭据，全部凭据被拒绝后结束。网络、5xx、WAF 路径保留最多三次请求和 Cookie 捕获行为，Authorization 值按配置原样发送。
+
+登录探测脚本只读取一次响应文本，再尝试解析 JSON；HTML 和普通文本仍能输出诊断摘要。自动测试使用离线响应，不读取真实凭据或请求真实账号。

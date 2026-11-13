@@ -112,7 +112,7 @@ async function buildStatus(env, now = Date.now()) {
     worker: WORKER,
     now,
     nextRun: nextRun(WORKER.cron, now),
-    todayStatus,
+    todayStatus: state.error ? { kind: "warn", text: "历史数据异常", hint: state.error.message } : todayStatus,
     lastResult: lastResult(last),
     stats: [
       { label: "当前余额", value: latestBalance ? money(latestBalance.balance) : "—" },
@@ -147,7 +147,10 @@ function methodNotAllowed(allow) {
 
 export default {
   async scheduled(event, env) {
-    await runAndStore(env);
+    try { await runAndStore(env); } catch (error) {
+      if (error.code === "storage_error") console.error(JSON.stringify({ code: error.code, stage: error.stage, key: error.key, status: error.result?.status ?? error.result?.ok }));
+      throw error;
+    }
   },
 
   async fetch(request, env) {
@@ -174,8 +177,13 @@ export default {
     }
     if (url.pathname === "/api/checkin") {
       if (request.method !== "POST") return methodNotAllowed("POST");
-      await runAndStore(env);
-      return json(await buildStatus(env));
+      try {
+        await runAndStore(env);
+        return json(await buildStatus(env));
+      } catch (error) {
+        if (error.code !== "storage_error") throw error;
+        return json({ ok: false, error: { code: error.code, message: error.message }, result: error.result ?? null }, 503);
+      }
     }
     return json({ ok: false, error: { code: "not_found", message: "Not Found" } }, 404);
   },

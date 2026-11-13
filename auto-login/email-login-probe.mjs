@@ -36,9 +36,10 @@ for (let i = 0; i < bodies.length; i++) {
       body: JSON.stringify(bodies[i])
     });
     capture(r);
+    const raw = await r.text();
     let j = null;
-    try { j = await r.json(); } catch (e) {}
-    const summary = j ? { success: j.success, msg: String(j.message || "").slice(0, 80), hasData: !!j.data, dataKeys: j.data ? Object.keys(j.data).join(",") : "" } : { raw: String(await r.text()).slice(0, 80) };
+    try { j = JSON.parse(raw); } catch (e) {}
+    const summary = j ? { success: j.success, msg: String(j.message || "").slice(0, 80), hasData: !!j.data, dataKeys: j.data ? Object.keys(j.data).join(",") : "" } : { raw: raw.slice(0, 80) };
     console.log(`[body${i}] status=${r.status} ${JSON.stringify(summary)}`);
     if (j && j.success === true && j.data) {
       const out = { ok: true, bodyIndex: i, session: jar.session || null, keys: Object.keys(j.data) };

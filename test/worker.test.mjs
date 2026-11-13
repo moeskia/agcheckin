@@ -108,15 +108,15 @@ test("agentrouter unified worker routes and check-in", async () => {
   }
 });
 
-test("agentrouter records missing credentials and tolerates malformed KV", async () => {
+test("agentrouter records missing credentials and preserves malformed KV", async () => {
   const env = {
     CHECKIN_KV: new MockKV({ history: "{", last: "{" }),
   };
   const empty = await (await worker.fetch(new Request("https://test/api/status"), env)).json();
-  assert.equal(empty.todayStatus.kind, "wait");
+  assert.equal(empty.todayStatus.kind, "warn");
   const failed = await (await worker.fetch(new Request("https://test/api/checkin", { method: "POST" }), env)).json();
-  assert.equal(failed.todayStatus.kind, "bad");
-  assert.equal(failed.history.length, 1);
+  assert.equal(failed.error.code, "storage_error");
+  assert.ok(failed.result);
 });
 
 test("agentrouter keeps the latest balance after a failed check", async () => {

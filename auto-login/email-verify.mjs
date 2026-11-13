@@ -8,7 +8,6 @@ const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML,
 const res = JSON.parse(readFileSync(join(here, "login-probe-result.json"), "utf8"));
 console.log("checked_in from login:", res.checked_in, "| session:", !!res.session);
 
-const jar = { session: res.session };
 // 获取 acw_tc（用登录后状态再访问一次 login 页? 直接先试 self）
 const self = await fetch(`${SITE}/api/user/self`, {
   headers: { "User-Agent": UA, Accept: "application/json", "new-api-user": "123456", Cookie: `session=${res.session}`, Referer: `${SITE}/console`, "Cache-Control": "no-store" }
