@@ -2,6 +2,8 @@
 
 Cloudflare Worker 每日通过邮箱密码登录 agentrouter.org 触发签到，快照余额与消耗，并提供统一状态页。
 
+定时执行由 cf-cron 通过 `Cron.run()` Service Binding 调用。本 Worker 的 `triggers.crons` 保持为空，执行时间在 cf-cron 中配置。
+
 ## 功能
 
 - 每日 08:00（北京时间）使用邮箱密码真实登录签到。

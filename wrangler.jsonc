@@ -1,15 +1,21 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "agentrouter-checkin",
-  "main": "src/index.js",
+  "main": "src/entry.js",
   "compatibility_date": "2026-10-01",
   "triggers": {
-    "crons": ["0 0 * * *"]
+    "crons": []
   },
   "kv_namespaces": [
     {
       "binding": "CHECKIN_KV",
       "id": "dc98bcf111814dd79b6a3e3961f113e8"
     }
-  ]
+  ],
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true
+    }
+  }
 }
