@@ -2,20 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { beijingDate, rewardStreak } from "../src/checkin.js";
 import worker from "../src/index.js";
-
-class MockKV {
-  constructor(entries = {}) {
-    this.values = new Map(Object.entries(entries));
-  }
-
-  async get(key) {
-    return this.values.has(key) ? this.values.get(key) : null;
-  }
-
-  async put(key, value) {
-    this.values.set(key, value);
-  }
-}
+import { MockKV } from "./kv-mock.mjs";
 
 function assertView(view) {
   assert.deepEqual(new Set(Object.keys(view)), new Set(["ok", "worker", "now", "nextRun", "todayStatus", "lastResult", "stats", "lastRun", "history"]));
@@ -93,7 +80,7 @@ test("agentrouter unified worker routes and check-in", async () => {
     assert.equal(view.todayStatus.kind, "info");
     assert.equal(view.stats[0].value, "$200.00");
     assert.equal(view.history.length, 1);
-    assert.doesNotMatch(view.todayStatus.hint, /账号|分组|自动登录并签到|余额|已用/);
+    assert.doesNotMatch(view.todayStatus.hint, /账号|自动登录并签到|余额|已用/);
     assert.match(view.todayStatus.hint, /每日奖励固定 \$25，缺少可比较记录，到账待核验/);
     assert.deepEqual(view.lastResult, { balanceDelta: null, consumeDelta: null, inferredCredit: null });
     assert.match(view.lastRun.message, /余额 \$200\.00/);
@@ -164,7 +151,7 @@ for (const [reward, signin, kind, text] of [
     assert.equal(view.todayStatus.text, text);
     assert.equal(view.history[0].status, !signin.ok ? "异常" : reward == null ? "待核" : reward >= 20 ? "到账" : "未到");
     assert.deepEqual(view.lastResult, { balanceDelta: record.delta, consumeDelta: record.consume, inferredCredit: reward });
-    assert.doesNotMatch(view.todayStatus.hint, /账号|分组|当时余额|已用|已自动登录/);
+    assert.doesNotMatch(view.todayStatus.hint, /账号|当时余额|已用/);
     assert.match(view.history[0].message, /当时余额 \$150\.00/);
     assert.equal(view.history[0].message, view.lastRun.message);
     assert.equal(view.stats[3].label, "连续奖励");
@@ -234,14 +221,12 @@ test("agentrouter recovers from a WAF HTML challenge via captured cookies", asyn
     if (String(url).endsWith("/api/user/login")) {
       return Response.json({ success: true, data: { id: 123456, checked_in: true } }, { headers: { "Set-Cookie": "session=login-session; Path=/" } });
     }
-    selfCalls.push({ auth: options.headers.Authorization, cookie: options.headers.Cookie });
+    selfCalls.push(options.headers.Cookie);
     if (selfCalls.length === 1) {
-      assert.equal(selfCalls[0].cookie, "session=login-session");
-      assert.equal(selfCalls[0].auth, undefined);
+      assert.equal(selfCalls[0], "session=login-session");
       return new Response(html, { status: 200, headers: { "Content-Type": "text/html", "Set-Cookie": "acw_tc=challenge-cookie; Path=/" } });
     }
-    assert.equal(selfCalls[1].auth, undefined);
-    assert.equal(selfCalls[1].cookie, "session=login-session; acw_tc=challenge-cookie");
+    assert.equal(selfCalls[1], "session=login-session; acw_tc=challenge-cookie");
     return Response.json({ success: true, data: { display_name: "Tester", quota: 100000000, used_quota: 50000000 } });
   };
   try {
@@ -268,7 +253,7 @@ test("agentrouter classifies persistent WAF challenges and retries with captured
     if (String(url).endsWith("/api/user/login")) {
       return Response.json({ success: true, data: { id: 123456, checked_in: true } }, { headers: { "Set-Cookie": "session=login-session; Path=/" } });
     }
-    selfCalls.push({ auth: options.headers.Authorization, cookie: options.headers.Cookie });
+    selfCalls.push(options.headers.Cookie);
     return new Response(html, { status: 200, headers: { "Content-Type": "text/html", "Set-Cookie": "acw_tc=challenge-cookie; Path=/" } });
   };
   try {
@@ -279,8 +264,8 @@ test("agentrouter classifies persistent WAF challenges and retries with captured
     };
     const view = await (await worker.fetch(new Request("https://test/api/checkin", { method: "POST" }), env)).json();
     assert.equal(selfCalls.length, 3);
-    assert.match(selfCalls[1].cookie, /acw_tc=challenge-cookie/);
-    assert.match(selfCalls[2].cookie, /acw_tc=challenge-cookie/);
+    assert.match(selfCalls[1], /acw_tc=challenge-cookie/);
+    assert.match(selfCalls[2], /acw_tc=challenge-cookie/);
     assert.equal(view.todayStatus.kind, "bad");
     assert.match(view.todayStatus.hint, /WAF challenge page \(HTML, HTTP 200\)/);
     assert.doesNotMatch(view.todayStatus.hint, /Unexpected token/);

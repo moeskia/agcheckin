@@ -2,12 +2,20 @@ const SITE = "https://agentrouter.org";
 const SELF_URL = `${SITE}/api/user/self`;
 const QUOTA_PER_UNIT = 500000;
 export const REWARD_THRESHOLD = 20;
+export const DAILY_REWARD = 25;
+const RETRY_DELAY_MS = 5000;
 const MAX_ATTEMPTS = 3;
 const MAX_LOGIN_ATTEMPTS = 2;
 const HISTORY_LIMIT = 60;
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function retryAfter(attempt, maxAttempts) {
+  if (attempt >= maxAttempts) return false;
+  await sleep(RETRY_DELAY_MS * attempt);
+  return true;
+}
 
 export function beijingDate(value = Date.now()) {
   return new Date(value + 8 * 3600 * 1000).toISOString().slice(0, 10);
@@ -57,7 +65,7 @@ function captureCookies(response, jar) {
 }
 
 async function signInEmail(env, jar = {}) {
-  const result = { ok: false, checked_in: false, user_id: null, error: "" };
+  const result = { ok: false, user_id: null, error: "" };
   if (!env.AGENTROUTER_EMAIL || !env.AGENTROUTER_PASSWORD) {
     result.error = "AGENTROUTER_EMAIL / AGENTROUTER_PASSWORD secret 未配置";
     return result;
@@ -91,10 +99,7 @@ async function signInEmail(env, jar = {}) {
         result.error = looksLikeHtml(text)
           ? `登录返回 HTML（HTTP ${response.status}，疑似 WAF 拦截）`
           : `登录返回非 JSON（HTTP ${response.status}）`;
-        if (attempt < MAX_LOGIN_ATTEMPTS) {
-          await sleep(5000 * attempt);
-          continue;
-        }
+        if (await retryAfter(attempt, MAX_LOGIN_ATTEMPTS)) continue;
         return result;
       }
       if (data.success !== true || !data.data) {
@@ -102,16 +107,12 @@ async function signInEmail(env, jar = {}) {
         return result;
       }
       result.ok = true;
-      result.checked_in = Boolean(data.data.checked_in);
       result.session = jar.session || null;
       result.user_id = data.data.id ?? null;
       return result;
     } catch (error) {
       result.error = String(error?.message || error).slice(0, 200);
-      if (attempt < MAX_LOGIN_ATTEMPTS) {
-        await sleep(5000 * attempt);
-        continue;
-      }
+      if (await retryAfter(attempt, MAX_LOGIN_ATTEMPTS)) continue;
     }
   }
   return result;
@@ -128,7 +129,6 @@ async function doCheckin(env) {
     ts: Date.now(),
     signin: {
       ok: signin.ok,
-      checked_in: signin.checked_in,
       error: signin.ok ? "" : signin.error,
     },
   };
@@ -154,10 +154,7 @@ async function doCheckin(env) {
         lastError = looksLikeHtml(text)
           ? `WAF challenge page (HTML, HTTP ${response.status})`
           : `non-JSON response (HTTP ${response.status})`;
-        if (attempt < MAX_ATTEMPTS) {
-          await sleep(5000 * attempt);
-          continue;
-        }
+        if (await retryAfter(attempt, MAX_ATTEMPTS)) continue;
         return { ...base, ok: false, error: `request failed: ${lastError}`, ts: Date.now() };
       }
       if (response.status === 200) {
@@ -183,17 +180,11 @@ async function doCheckin(env) {
         return { ...base, ok: false, error: `HTTP ${response.status}: session cookie expired or invalid`, ts: Date.now() };
       }
       lastError = `HTTP ${response.status}`;
-      if (response.status >= 500 && attempt < MAX_ATTEMPTS) {
-        await sleep(5000 * attempt);
-        continue;
-      }
+      if (response.status >= 500 && await retryAfter(attempt, MAX_ATTEMPTS)) continue;
       return { ...base, ok: false, error: lastError, ts: Date.now() };
     } catch (error) {
       lastError = error.message || String(error);
-      if (attempt < MAX_ATTEMPTS) {
-        await sleep(5000 * attempt);
-        continue;
-      }
+      if (await retryAfter(attempt, MAX_ATTEMPTS)) continue;
     }
   }
   return { ...base, ok: false, error: `request failed: ${lastError}`, ts: Date.now() };
@@ -268,41 +259,8 @@ export function rewardStreak(history, today) {
   return length;
 }
 
-async function maybeNotify(env, result) {
-  const delta = result.delta != null
-    ? (result.delta >= 0 ? `+$${result.delta.toFixed(2)}` : `-$${Math.abs(result.delta).toFixed(2)}`)
-    : "--";
-  const consume = result.consume != null ? `$${Math.max(0, result.consume).toFixed(2)}` : "--";
-  const reward = result.reward == null
-    ? "未知"
-    : (result.reward >= REWARD_THRESHOLD ? "已到账 (+$25)" : "未到账");
-  const signin = result.signin?.ok
-    ? (result.signin.checked_in ? "自动签到成功" : "已自动登录")
-    : (result.signin?.ok === false ? `自动签到失败: ${result.signin.error}` : "未自动签到");
-  const text = result.ok
-    ? `AgentRouter 签到检查 ${result.date}\n账号: ${result.username}\n${signin}\n余额: $${result.balance} (已用 $${result.used})\n较上次: ${delta} · 期间消耗: ${consume}\n奖励: ${reward}`
-    : `AgentRouter 签到检查失败 ${result.date}\n${result.error}`;
-  const jobs = [];
-  if (env.NOTIFY_URL) {
-    jobs.push(fetch(env.NOTIFY_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: result.ok ? "签到检查" : "签到检查失败", content: text }),
-    }).catch(() => {}));
-  }
-  if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
-    jobs.push(fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text }),
-    }).catch(() => {}));
-  }
-  await Promise.allSettled(jobs);
-}
-
 export async function runAndStore(env) {
   const result = await doCheckin(env);
   const record = await storeResult(env, result);
-  await maybeNotify(env, record);
   return record;
 }

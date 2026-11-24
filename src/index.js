@@ -1,4 +1,4 @@
-import { beijingDate, readState, REWARD_THRESHOLD, rewardStreak, runAndStore } from "./checkin.js";
+import { beijingDate, DAILY_REWARD, readState, REWARD_THRESHOLD, rewardStreak, runAndStore } from "./checkin.js";
 import { renderPage } from "./ui.js";
 
 const WORKER = {
@@ -45,11 +45,11 @@ function recordMessage(record, snapshot = true) {
   if (!record) return "";
   if (!record.ok) {
     const error = String(record.error || "检查失败");
-    return /401|session.*(?:expired|invalid)|会话.*失效/i.test(error) ? `${error}；请更新登录凭据` : error;
+    return /401|session.*(?:expired|invalid)/i.test(error) ? `${error}；请更新登录凭据` : error;
   }
   const parts = [];
-  if (record.reward == null) parts.push("每日奖励固定 $25，缺少可比较记录，到账待核验");
-  else parts.push(record.reward >= REWARD_THRESHOLD ? "每日奖励 +$25 已到账" : "每日奖励 $25，尚未检测到到账");
+  if (record.reward == null) parts.push(`每日奖励固定 $${DAILY_REWARD}，缺少可比较记录，到账待核验`);
+  else parts.push(record.reward >= REWARD_THRESHOLD ? `每日奖励 +$${DAILY_REWARD} 已到账` : `每日奖励 $${DAILY_REWARD}，尚未检测到到账`);
   if (record.consume != null) parts.push(`期间消耗 $${Number(record.consume).toFixed(2)}`);
   if (record.delta != null) {
     const delta = Number(record.delta);
@@ -60,20 +60,14 @@ function recordMessage(record, snapshot = true) {
   return parts.join(" · ");
 }
 
-function recordKind(record) {
-  if (!record) return "wait";
-  if (!record.ok) return "bad";
-  if (record.signin?.ok === false) return "warn";
-  if (record.reward == null) return "info";
-  return record.reward >= REWARD_THRESHOLD ? "ok" : "warn";
-}
-
-function recordStatus(record, compact = false) {
-  if (!record) return compact ? "待检" : "等待运行";
-  if (!record.ok) return compact ? "失败" : "检查失败";
-  if (record.signin?.ok === false) return compact ? "异常" : "自动登录失败";
-  if (record.reward == null) return compact ? "待核" : "到账待核验";
-  return record.reward >= REWARD_THRESHOLD ? (compact ? "到账" : "奖励已到账") : (compact ? "未到" : "奖励待到账");
+function recordView(record) {
+  if (!record) return { kind: "wait", status: "待检", text: "等待运行" };
+  if (!record.ok) return { kind: "bad", status: "失败", text: "检查失败" };
+  if (record.signin?.ok === false) return { kind: "warn", status: "异常", text: "自动登录失败" };
+  if (record.reward == null) return { kind: "info", status: "待核", text: "到账待核验" };
+  return record.reward >= REWARD_THRESHOLD
+    ? { kind: "ok", status: "到账", text: "奖励已到账" }
+    : { kind: "warn", status: "未到", text: "奖励待到账" };
 }
 
 function lastResult(record) {
@@ -86,11 +80,12 @@ function lastResult(record) {
 }
 
 function historyItem(record) {
+  const view = recordView(record);
   return {
     date: record.date || "—",
     time: record.ts ? bjTime(record.ts).slice(11) : "—",
-    kind: recordKind(record),
-    status: recordStatus(record, true),
+    kind: view.kind,
+    status: view.status,
     message: recordMessage(record),
   };
 }
@@ -103,9 +98,11 @@ async function buildStatus(env, now = Date.now()) {
   const today = beijingDate(now);
   const todayRecord = state.history.find((item) => item && item.date === today)
     || (last?.date === today ? last : null);
-  const todayStatus = todayRecord
-    ? { kind: recordKind(todayRecord), text: recordStatus(todayRecord), hint: recordMessage(todayRecord, false) }
+  const todayView = todayRecord ? recordView(todayRecord) : null;
+  const todayStatus = todayView
+    ? { kind: todayView.kind, text: todayView.text, hint: recordMessage(todayRecord, false) }
     : { kind: "wait", text: "今日待检查", hint: last ? `上次 ${bjTime(last.ts)}` : "暂无记录" };
+  const lastView = recordView(last);
   return {
     ok: true,
     worker: WORKER,
@@ -121,8 +118,8 @@ async function buildStatus(env, now = Date.now()) {
     ],
     lastRun: {
       time: last ? bjTime(last.ts) : "—",
-      kind: recordKind(last),
-      status: recordStatus(last, true),
+      kind: lastView.kind,
+      status: lastView.status,
       message: last ? recordMessage(last) : "",
     },
     history: state.history.slice(0, 30).map(historyItem),

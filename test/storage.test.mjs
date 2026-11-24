@@ -1,22 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import worker from "../src/index.js";
+import { MockKV } from "./kv-mock.mjs";
 
 const HISTORY = "history";
 const old = { date: "2000-01-01", ok: true };
-class KV {
-  values = new Map([[HISTORY, JSON.stringify([old])]]);
-  writes = [];
-  async get(key) {
-    if (key === this.readFailure) throw new Error("offline read failure");
-    return this.values.get(key) ?? null;
-  }
-  async put(key, value) {
-    if ([HISTORY, "last"].includes(key)) this.writes.push(key);
-    if (key === this.writeFailure) throw new Error("offline write failure");
-    this.values.set(key, value);
-  }
-}
+const newKV = () => new MockKV({ [HISTORY]: JSON.stringify([old]) });
 function env(kv) { return { CHECKIN_KV: kv, AGENTROUTER_EMAIL: "test@example.com", AGENTROUTER_PASSWORD: "test-password" }; }
 async function run(kv, action) {
   const original = globalThis.fetch;
@@ -31,7 +20,7 @@ async function post(env) { return worker.fetch(new Request("https://test/api/che
 
 for (const value of ["{", "null", "{}", "[null]", '[{},null]']) {
   test("protects invalid history: " + value, async () => {
-    const kv = new KV();
+    const kv = newKV();
     kv.values.set(HISTORY, value);
     await run(kv, async (env) => {
       const view = await (await worker.fetch(new Request("https://test/api/status"), env)).json();
@@ -49,7 +38,7 @@ for (const value of ["{", "null", "{}", "[null]", '[{},null]']) {
 }
 
 test("read failure preserves historical data and returns the upstream result", async () => {
-  const kv = new KV();
+  const kv = newKV();
   kv.readFailure = HISTORY;
   const previous = kv.values.get(HISTORY);
   await run(kv, async (env) => {
@@ -64,7 +53,7 @@ test("read failure preserves historical data and returns the upstream result", a
 
 for (const key of ["history","last"]) {
   test("stops after a failed write to " + key, async () => {
-    const kv = new KV();
+    const kv = newKV();
     kv.writeFailure = key;
     await run(kv, async (env, calls) => {
       const response = await post(env);
@@ -81,7 +70,7 @@ for (const key of ["history","last"]) {
 }
 
 test("scheduled storage failure logs only stage, key and outcome", async () => {
-  const kv = new KV();
+  const kv = newKV();
   kv.writeFailure = HISTORY;
   const logs = [];
   const original = console.error;

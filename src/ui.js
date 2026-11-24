@@ -56,7 +56,7 @@ html{-webkit-text-size-adjust:100%}
 body{margin:0;min-height:100vh;font:15px/1.55 var(--font);color:var(--text);background:var(--page);-webkit-font-smoothing:antialiased}
 .shell{width:min(900px,calc(100% - 32px));margin:36px auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(22,31,42,.055)}
 .head{display:flex;align-items:center;gap:14px;padding:22px 24px}
-.mark{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:11px;background:color-mix(in srgb,#16a34a 15%,var(--soft));border:1px solid color-mix(in srgb,#16a34a 28%,transparent);color:#fff;font-size:18px;font-weight:600;overflow:hidden}
+.mark{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:11px;background:color-mix(in srgb,#16a34a 15%,var(--soft));border:1px solid color-mix(in srgb,#16a34a 28%,transparent);overflow:hidden}
 .mark-img{width:26px;height:26px;object-fit:contain;border-radius:4px;display:block}
 .title{flex:1;min-width:0}
 .title h1{margin:0;font-size:22px;line-height:30px;font-weight:600}
@@ -72,7 +72,7 @@ button:disabled{opacity:.55;cursor:wait}
 .badge.warn{background:var(--warn-bg);color:var(--warn)}
 .badge.wait{background:var(--wait-bg);color:var(--wait)}
 .badge.info{background:var(--info-bg);color:var(--info)}
-.hint{min-width:0;padding-top:0;color:var(--muted);font-size:14px;line-height:22px}
+.hint{min-width:0;padding-top:0;color:var(--muted);font-size:14px;line-height:22px;cursor:pointer}
 .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:14px}
 .metric{min-width:0;padding:12px 13px;border:1px solid var(--line);border-radius:9px;background:var(--soft)}
 .metric span{display:block;color:var(--muted);font-size:12px;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -105,7 +105,6 @@ button:disabled{opacity:.55;cursor:wait}
 .msg-inner{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;word-break:break-word;transition:color .15s ease}
 .history-table tbody tr.record.expanded .msg-inner{display:block;-webkit-line-clamp:unset;color:var(--text)}
 .empty-row td.empty{padding:32px 16px;text-align:center;color:var(--muted);font-size:13px}
-.hint{cursor:pointer}
 .hint.expanded{display:block;-webkit-line-clamp:unset}
 @media(max-width:620px){
 .shell{width:100%;margin:0;border:0;border-radius:0;box-shadow:none}
@@ -178,26 +177,6 @@ document.addEventListener("click",(e)=>{
   const t=e.target.closest(".hint");
   if(t)t.classList.toggle("expanded");
 });
-function escJs(s){
-  return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-}
-function bjTimeJs(v){
-  if(!v)return"—";
-  const d=new Date(Number(v));
-  if(isNaN(d.getTime()))return String(v);
-  return new Date(d.getTime()+8*3600*1000).toISOString().slice(0,19).replace("T"," ");
-}
-function badgeJs(item){
-  return '<span class="badge '+escJs(item.kind)+'"><span class="dot"></span>'+escJs(item.status||item.text)+'</span>';
-}
-function rowJs(item){
-  return '<tr class="record">' +
-    '<td class="col-date">' + escJs(item.date) + '</td>' +
-    '<td class="col-time">' + escJs(item.time || "") + '</td>' +
-    '<td class="col-status">' + badgeJs(item) + '</td>' +
-    '<td class="col-msg" title="' + escJs(item.message || "") + '"><div class="msg-inner">' + escJs(item.message || "") + '</div></td>' +
-    '</tr>';
-}
 checkin.addEventListener("click",async()=>{
   checkin.disabled=true;
   note.textContent="正在签到...";
@@ -205,35 +184,9 @@ checkin.addEventListener("click",async()=>{
     const response=await fetch("/api/checkin",{method:"POST",headers:{Accept:"application/json"}});
     const data=await response.json();
     if(!response.ok||!data.ok)throw new Error(data.error?.message||"签到失败");
-    note.textContent=data.todayStatus.text;
-    if(data.todayStatus){
-      const statusBox=document.getElementById("status-box");
-      if(statusBox)statusBox.innerHTML=badgeJs(data.todayStatus)+'<div class="hint" title="'+escJs(data.todayStatus.hint||'')+'">'+escJs(data.todayStatus.hint||'')+'</div>';
-    }
-    if(data.stats){
-      const metricsBox=document.getElementById("metrics-box");
-      if(metricsBox)metricsBox.innerHTML=data.stats.map(s=>'<div class="metric"><span>'+escJs(s.label)+'</span><strong>'+escJs(s.value)+'</strong></div>').join("");
-    }
-    if(data.lastRun){
-      const lastTime=document.getElementById("last-time");
-      if(lastTime)lastTime.textContent=data.lastRun.time||"—";
-    }
-    if(data.nextRun){
-      const nextTime=document.getElementById("next-time");
-      if(nextTime)nextTime.textContent=bjTimeJs(data.nextRun);
-    }
-    if(data.history){
-      const recent=data.history.slice(0,12);
-      const countEl=document.getElementById("history-count");
-      if(countEl)countEl.textContent="最近 "+recent.length+" 条";
-      const recordsBox=document.getElementById("records-box");
-      if(recordsBox){
-        recordsBox.innerHTML=recent.length?recent.map(rowJs).join(""):'<tr class="empty-row"><td colspan="4" class="empty">暂无记录</td></tr>';
-      }
-    }
+    location.reload();
   }catch(error){
     note.textContent=error instanceof Error?error.message:"签到失败";
-  }finally{
     checkin.disabled=false;
   }
 });
