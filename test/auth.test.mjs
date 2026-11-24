@@ -2,51 +2,68 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { runAndStore } from "../src/checkin.js";
 
-async function check(statuses, credentials) {
+const account = (id) => Response.json({ success: true, data: { id, quota: 500000, used_quota: 0 } });
+const login = (id) => Response.json(
+  { success: true, data: { id, quota: 500000, used_quota: 0 } },
+  { headers: { "Set-Cookie": "session=fresh-session; Path=/" } },
+);
+
+async function run(responses, credentials = { AGENTROUTER_EMAIL: "test@example.com", AGENTROUTER_PASSWORD: "test-password" }) {
   const requests = [];
-  const values = new Map();
   const original = globalThis.fetch;
   globalThis.fetch = async (_, options) => {
     requests.push(options.headers);
-    const status = statuses[requests.length - 1];
-    assert.ok(status, "unexpected extra request");
-    return Response.json(status === 200 ? { success: true, data: { quota: 500000, used_quota: 0 } } : { success: false, message: "invalid credentials" }, { status });
+    const response = responses[requests.length - 1];
+    assert.ok(response, "unexpected extra request");
+    return response;
   };
   try {
-    const result = await runAndStore({ API_USER: "1", ...credentials, CHECKIN_KV: {
-      async get(key) { return values.get(key) ?? null; },
-      async put(key, value) { values.set(key, value); },
-    } });
+    const result = await runAndStore({
+      ...credentials,
+      CHECKIN_KV: { async get() { return null; }, async put() {} },
+    });
     return { result, requests };
-  } finally { globalThis.fetch = original; }
+  } finally {
+    globalThis.fetch = original;
+  }
 }
 
-test("token-only authentication starts with Authorization", async () => {
-  const { result, requests } = await check([200], { AGENTROUTER_ACCESS_TOKEN: "test-token" });
+test("login id becomes the new-api-user header", async () => {
+  const { result, requests } = await run([login(123456), account(123456)]);
   assert.equal(result.ok, true);
-  assert.equal(requests.length, 1);
-  assert.equal(requests[0].Authorization, "test-token");
+  assert.equal(result.signin.ok, true);
+  assert.equal(requests.length, 2);
   assert.equal(requests[0].Cookie, undefined);
+  assert.equal(requests[1].Cookie, "session=fresh-session");
+  assert.equal(requests[1]["new-api-user"], "123456");
 });
 
-for (const status of [401, 403]) {
-  test("JSON " + status + " falls back from Cookie to Token", async () => {
-    const { result, requests } = await check([status, 200], { SESSION_COOKIE: "session=test", AGENTROUTER_ACCESS_TOKEN: "test-token" });
-    assert.equal(result.ok, true);
-    assert.equal(requests.length, 2);
-    assert.ok(requests[0].Cookie);
-    assert.equal(requests[1].Authorization, "test-token");
-    assert.equal(requests[1].Cookie, undefined);
-  });
-  test("stops after all credentials reject authentication with " + status, async () => {
-    const { result, requests } = await check([status, status], { SESSION_COOKIE: "session=test", AGENTROUTER_ACCESS_TOKEN: "test-token" });
-    assert.equal(result.ok, false);
-    assert.equal(requests.length, 2);
-  });
-}
-
-test("invalid Cookie without Token stops after one request", async () => {
-  const { result, requests } = await check([401], { SESSION_COOKIE: "session=test" });
+test("stops on a rejected session cookie without retrying", async () => {
+  const { result, requests } = await run([login(123456), Response.json({ success: false }, { status: 401 })]);
   assert.equal(result.ok, false);
+  assert.match(result.error, /401: session cookie expired or invalid/);
+  assert.equal(requests.length, 2);
+});
+
+test("does not call the account API when email login fails", async () => {
+  const { result, requests } = await run([Response.json({ success: false, message: "invalid credentials" })]);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /密码登录失败/);
   assert.equal(requests.length, 1);
+});
+
+test("does not call the account API without a login user id", async () => {
+  const { result, requests } = await run([
+    Response.json({ success: true, data: { checked_in: false } }, { headers: { "Set-Cookie": "session=fresh-session; Path=/" } }),
+  ]);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /未取得 session 或用户 id/);
+  assert.equal(requests.length, 1);
+});
+
+test("reports missing email and password without any request", async () => {
+  const { result, requests } = await run([], {});
+  assert.equal(result.ok, false);
+  assert.match(result.error, /AGENTROUTER_EMAIL \/ AGENTROUTER_PASSWORD secret 未配置/);
+  assert.equal(requests.length, 0);
 });

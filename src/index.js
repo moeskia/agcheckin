@@ -1,13 +1,12 @@
-import { beijingDate, readState, rewardStreak, runAndStore } from "./checkin.js";
+import { beijingDate, readState, REWARD_THRESHOLD, rewardStreak, runAndStore } from "./checkin.js";
 import { renderPage } from "./ui.js";
 
 const WORKER = {
   id: "ag",
   name: "AgentRouter",
   site: "agentrouter.org",
-  cron: "0 0 * * *",
+  cron: "0 0 * * *", // 仅用于展示"下次"时间；真实调度在 cf-cron，本 Worker 不声明 triggers.crons
 };
-const REWARD_THRESHOLD = 20;
 
 function bjTime(value) {
   if (!value) return "—";

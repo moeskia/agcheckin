@@ -42,7 +42,7 @@ for (let i = 0; i < bodies.length; i++) {
     const summary = j ? { success: j.success, msg: String(j.message || "").slice(0, 80), hasData: !!j.data, dataKeys: j.data ? Object.keys(j.data).join(",") : "" } : { raw: raw.slice(0, 80) };
     console.log(`[body${i}] status=${r.status} ${JSON.stringify(summary)}`);
     if (j && j.success === true && j.data) {
-      const out = { ok: true, bodyIndex: i, session: jar.session || null, keys: Object.keys(j.data) };
+      const out = { ok: true, bodyIndex: i, session: jar.session || null, id: j.data.id ?? null, keys: Object.keys(j.data) };
       if (j.data.checked_in != null) out.checked_in = j.data.checked_in;
       writeFileSync(join(here, "login-probe-result.json"), JSON.stringify(out, null, 2), "utf8");
       console.log("LOGIN OK body" + i, "keys:", Object.keys(j.data).join(","));

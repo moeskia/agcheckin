@@ -51,15 +51,14 @@ agCheckin/
 |---|---|---|
 | `AGENTROUTER_EMAIL` | Secret | 登录邮箱 |
 | `AGENTROUTER_PASSWORD` | Secret | 登录密码 |
-| `API_USER` | Secret | `new-api-user` 请求头中的数字 ID |
-| `AGENTROUTER_ACCESS_TOKEN` | Secret | 可选，个人 API access token，快照接口的无 Cookie 兜底认证 |
-| `SESSION_COOKIE` | Secret | 可选，session 兜底 |
 | `ACW_TC` | Secret | 可选，WAF Cookie |
 | `NOTIFY_URL` | Secret | 可选，Webhook 地址 |
 | `TELEGRAM_BOT_TOKEN` | Secret | 可选，Telegram Bot Token |
 | `TELEGRAM_CHAT_ID` | Secret | 可选，Telegram Chat ID |
 
-KV 绑定 `CHECKIN_KV` 保存 `session`、`last` 和 `history`。页面和接口当前无需访问令牌。
+KV 绑定 `CHECKIN_KV` 只保存 `last` 和 `history`。页面和接口当前无需访问令牌。
+
+`.agentrouter_creds.json` 保存 `ACW_TC`，键名与上表 secret 名一致，可用 `npx wrangler secret bulk .agentrouter_creds.json` 上传。
 
 ## 本地验证
 
@@ -100,8 +99,8 @@ npx wrangler deploy --dry-run
 
 生产发布前备份 `history`、`last`，先发布签到 Worker 的数据保护修复，再发布 Dashboard，最后发布局部重构。Plus 旧迁移键继续保留。回滚代码不会回滚 KV；不要为了恢复旧行为而清空历史或重置统计。
 
-## 认证兜底与探测脚本
+## 认证流程与探测脚本
 
-有 Session 时先使用 Cookie，只有 Access Token 时首轮直接使用 Token。JSON 401/403 会切换尚未被拒绝的凭据，全部凭据被拒绝后结束。网络、5xx、WAF 路径保留最多三次请求和 Cookie 捕获行为，Authorization 值按配置原样发送。
+登录只走邮箱密码：`POST /api/user/login` 成功后从 `Set-Cookie` 取 session，并用响应里的 `data.id` 作为 `new-api-user` 请求头（上游强制校验，缺失或与登录用户不匹配都返回 401），随后请求 `/api/user/self`。登录失败即记录失败，不再请求账户接口、不做凭据切换。网络、5xx、WAF 路径保留最多三次请求和 Cookie（含 `acw_tc`）捕获行为。
 
 登录探测脚本只读取一次响应文本，再尝试解析 JSON；HTML 和普通文本仍能输出诊断摘要。自动测试使用离线响应，不读取真实凭据或请求真实账号。

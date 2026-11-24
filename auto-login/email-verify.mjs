@@ -10,7 +10,7 @@ console.log("checked_in from login:", res.checked_in, "| session:", !!res.sessio
 
 // 获取 acw_tc（用登录后状态再访问一次 login 页? 直接先试 self）
 const self = await fetch(`${SITE}/api/user/self`, {
-  headers: { "User-Agent": UA, Accept: "application/json", "new-api-user": "123456", Cookie: `session=${res.session}`, Referer: `${SITE}/console`, "Cache-Control": "no-store" }
+  headers: { "User-Agent": UA, Accept: "application/json", "new-api-user": String(res.id), Cookie: `session=${res.session}`, Referer: `${SITE}/console`, "Cache-Control": "no-store" }
 });
 const j = await self.json();
 if (j && j.success === true && j.data) {

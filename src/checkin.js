@@ -1,7 +1,7 @@
 const SITE = "https://agentrouter.org";
 const SELF_URL = `${SITE}/api/user/self`;
 const QUOTA_PER_UNIT = 500000;
-const REWARD_THRESHOLD = 20;
+export const REWARD_THRESHOLD = 20;
 const MAX_ATTEMPTS = 3;
 const MAX_LOGIN_ATTEMPTS = 2;
 const HISTORY_LIMIT = 60;
@@ -25,19 +25,15 @@ function cookieHeader(jar, extra = {}) {
     .join("; ");
 }
 
-function buildHeaders(env, session, jar = {}, mode = "cookie") {
+function buildHeaders(env, session, jar = {}, userId) {
   const headers = {
     "User-Agent": USER_AGENT,
     Accept: "application/json, text/plain, */*",
     "Accept-Language": "zh-CN,zh;q=0.9",
     "Cache-Control": "no-store",
     Referer: `${SITE}/console`,
-    "new-api-user": env.API_USER,
+    "new-api-user": String(userId),
   };
-  if (mode === "token" && env.AGENTROUTER_ACCESS_TOKEN) {
-    headers.Authorization = env.AGENTROUTER_ACCESS_TOKEN;
-    return headers;
-  }
   const extra = {};
   if (session) extra.session = session;
   if (!jar.acw_tc && env.ACW_TC) extra.acw_tc = env.ACW_TC;
@@ -61,7 +57,7 @@ function captureCookies(response, jar) {
 }
 
 async function signInEmail(env, jar = {}) {
-  const result = { ok: false, checked_in: false, error: "" };
+  const result = { ok: false, checked_in: false, user_id: null, error: "" };
   if (!env.AGENTROUTER_EMAIL || !env.AGENTROUTER_PASSWORD) {
     result.error = "AGENTROUTER_EMAIL / AGENTROUTER_PASSWORD secret 未配置";
     return result;
@@ -108,6 +104,7 @@ async function signInEmail(env, jar = {}) {
       result.ok = true;
       result.checked_in = Boolean(data.data.checked_in);
       result.session = jar.session || null;
+      result.user_id = data.data.id ?? null;
       return result;
     } catch (error) {
       result.error = String(error?.message || error).slice(0, 200);
@@ -120,27 +117,11 @@ async function signInEmail(env, jar = {}) {
   return result;
 }
 
-async function getSession(env) {
-  if (!env.CHECKIN_KV) return null;
-  try {
-    return await env.CHECKIN_KV.get("session");
-  } catch {
-    return null;
-  }
-}
-
 async function doCheckin(env) {
   const date = beijingDate();
   const jar = {};
   const signin = await signInEmail(env, jar);
-  let session = signin.ok && signin.session ? signin.session : null;
-  if (session && env.CHECKIN_KV) {
-    try {
-      await env.CHECKIN_KV.put("session", session);
-    } catch {}
-  }
-  if (!session) session = await getSession(env);
-  if (!session) session = env.SESSION_COOKIE;
+  const session = signin.ok && signin.session ? signin.session : null;
 
   const base = {
     date,
@@ -151,21 +132,18 @@ async function doCheckin(env) {
       error: signin.ok ? "" : signin.error,
     },
   };
-  if (!env.API_USER || (!session && !env.AGENTROUTER_ACCESS_TOKEN)) {
+  if (!session || signin.user_id == null) {
     return {
       ...base,
       ok: false,
-      error: `${signin.error ? `${signin.error}; ` : ""}缺少可用 session 或 API_USER secret`,
+      error: `${signin.error ? `${signin.error}; ` : ""}邮箱密码登录未取得 session 或用户 id`,
     };
   }
 
   let lastError = "";
-  const rejected = new Set();
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-    const modes = [session && "cookie", env.AGENTROUTER_ACCESS_TOKEN && "token"].filter((mode) => mode && !rejected.has(mode));
-    const mode = modes[attempt === 2 && modes.length > 1 ? 1 : 0];
     try {
-      const response = await fetch(SELF_URL, { headers: buildHeaders(env, session, jar, mode), redirect: "follow" });
+      const response = await fetch(SELF_URL, { headers: buildHeaders(env, session, jar, signin.user_id), redirect: "follow" });
       captureCookies(response, jar);
       const text = await response.text();
       let data = null;
@@ -191,7 +169,6 @@ async function doCheckin(env) {
             username: account.display_name || account.username || String(account.id),
             balance: Number((account.quota || 0) / QUOTA_PER_UNIT).toFixed(2),
             used: Number((account.used_quota || 0) / QUOTA_PER_UNIT).toFixed(2),
-            group: account.group || "",
             ts: Date.now(),
           };
         }
@@ -203,10 +180,7 @@ async function doCheckin(env) {
         };
       }
       if (response.status === 401 || response.status === 403) {
-        rejected.add(mode);
-        lastError = `HTTP ${response.status}: ${mode === "token" ? "access token" : "session cookie"} expired or invalid`;
-        if (attempt < MAX_ATTEMPTS && modes.some((candidate) => !rejected.has(candidate))) continue;
-        return { ...base, ok: false, error: lastError, ts: Date.now() };
+        return { ...base, ok: false, error: `HTTP ${response.status}: session cookie expired or invalid`, ts: Date.now() };
       }
       lastError = `HTTP ${response.status}`;
       if (response.status >= 500 && attempt < MAX_ATTEMPTS) {

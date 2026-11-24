@@ -3,30 +3,27 @@ import test from "node:test";
 import worker from "../src/index.js";
 
 const HISTORY = "history";
-const old = { date: "2000-01-01", time: "2000-01-01T00:00:00Z", status: "success", ok: true, message: "签到成功" };
+const old = { date: "2000-01-01", ok: true };
 class KV {
-  values = new Map([[HISTORY, JSON.stringify([old])], ["stats", JSON.stringify({ totalSuccess: 42 })]]);
+  values = new Map([[HISTORY, JSON.stringify([old])]]);
   writes = [];
   async get(key) {
     if (key === this.readFailure) throw new Error("offline read failure");
     return this.values.get(key) ?? null;
   }
   async put(key, value) {
-    if ([HISTORY, "stats", "last"].includes(key)) this.writes.push(key);
+    if ([HISTORY, "last"].includes(key)) this.writes.push(key);
     if (key === this.writeFailure) throw new Error("offline write failure");
     this.values.set(key, value);
   }
 }
-function env(kv) { return { CHECKIN_KV: kv, ...{ SESSION_COOKIE: "sid=test", API_USER: "1" } }; }
+function env(kv) { return { CHECKIN_KV: kv, AGENTROUTER_EMAIL: "test@example.com", AGENTROUTER_PASSWORD: "test-password" }; }
 async function run(kv, action) {
   const original = globalThis.fetch;
   const calls = [];
   globalThis.fetch = async (url) => {
     calls.push(String(url));
-    if (String(url).endsWith("/")) return new Response('<meta name="csrf-token" content="token">');
-    if (String(url).endsWith("/daily-checkin/status")) return Response.json({ has_checked_in_today: false });
-    if (String(url).includes("plugin.php")) return new Response(String(url).includes("action=ajax") ? "<ajax><![CDATA[success\t领取成功]]></ajax>" : "<html>tasks</html>");
-    return Response.json({ success: true, consecutiveDays: 3, expBonus: 2, points: 20, message: "签到成功", data: { quota: 500000, used_quota: 0 } });
+    return Response.json({ success: true, consecutiveDays: 3, expBonus: 2, points: 20, message: "签到成功", data: { id: 123456, quota: 500000, used_quota: 0 } }, { headers: { "Set-Cookie": "session=test-session; Path=/" } });
   };
   try { return await action(env(kv), calls); } finally { globalThis.fetch = original; }
 }
@@ -46,7 +43,6 @@ for (const value of ["{", "null", "{}", "[null]", '[{},null]']) {
       assert.equal(data.error.code, "storage_error");
       assert.ok(data.result);
       assert.equal(kv.values.get(HISTORY), value);
-      assert.equal(JSON.parse(kv.values.get("stats")).totalSuccess, 42);
       assert.deepEqual(kv.writes, []);
     });
   });
@@ -63,7 +59,6 @@ test("read failure preserves historical data and returns the upstream result", a
     assert.equal(data.result.status ?? data.result.ok, true);
     assert.deepEqual(kv.writes, []);
     assert.equal(kv.values.get(HISTORY), previous);
-    assert.equal(JSON.parse(kv.values.get("stats")).totalSuccess, 42);
   });
 });
 
